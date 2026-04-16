@@ -717,113 +717,35 @@ def render_submit(rule_engine, llm_checker, all_claims):
 
 
 def _show_batch_vs_live(batch_result, claim, rule_engine, llm_checker):
-    """Shows pre-computed batch result alongside live analysis result."""
+    """Shows the pre-computed batch evaluation result for this claim."""
 
-    # ── Pre-computed batch result ─────────────────────────────────────────────
-    bf = batch_result.get("fraud_detected", False)
-    bt = batch_result.get("fraud_type") or "None"
-    bc = (batch_result.get("confidence") or "high").upper()
-    be = batch_result.get("explanation","") or "All checks passed."
-    bdb = batch_result.get("decision_by","")
-    true_fraud = batch_result.get("true_fraud", False)
-    true_type  = batch_result.get("true_fraud_type","Legitimate")
-    pred_ok    = batch_result.get("prediction_correct", True)
+    bf  = batch_result.get("fraud_detected", False)
+    bt  = batch_result.get("fraud_type") or "None"
+    bc  = (batch_result.get("confidence") or "high").upper()
+    be  = batch_result.get("explanation", "") or "All checks passed."
+    bdb = batch_result.get("decision_by", "")
 
-    # Ground truth banner
-    gt_bg  = "#FEF2F2" if true_fraud else "#F0FDF4"
-    gt_bdr = "#DC2626" if true_fraud else "#16A34A"
-    gt_col = "#DC2626" if true_fraud else "#16A34A"
-    st.markdown(f"""
-    <div style="background:{gt_bg};border-left:4px solid {gt_bdr};
-                border-radius:6px;padding:10px 16px;margin-bottom:12px">
-      <div style="font-size:10px;font-weight:700;color:{gt_col};
-                  letter-spacing:0.1em;text-transform:uppercase;margin-bottom:3px">
-        Ground Truth (from claims dataset)
-      </div>
-      <div style="font-size:13px;font-weight:600;color:#111827">
-        {'⚠️ ' + true_type if true_fraud else '✅ Legitimate — no fraud present'}
-      </div>
-    </div>""", unsafe_allow_html=True)
+    # Render using the standard verdict display
+    final = {
+        "fraud_detected": bf,
+        "fraud_type":     bt if bf else None,
+        "confidence":     bc,
+        "explanation":    be,
+        "engine":         bdb.replace("_", " ").title(),
+    }
 
-    col_batch, col_live = st.columns(2, gap="medium")
+    # Build rule/llm sub-results from batch data
+    rr = batch_result.get("rule_result", {
+        "fraud_detected": False,
+        "explanation": "Rule engine results from batch run."
+    })
+    lr = batch_result.get("llm_result", {
+        "fraud_detected": False,
+        "confidence": "high",
+        "explanation": "LLM results from batch run."
+    })
 
-    # Batch result
-    with col_batch:
-        bb_bg  = "#FEF2F2" if bf else "#F0FDF4"
-        bb_bdr = "#DC2626" if bf else "#16A34A"
-        bb_col = "#DC2626" if bf else "#16A34A"
-        bb_lbl = "🚨 Fraud" if bf else "✅ Legitimate"
-        st.markdown(f"""
-        <div style="background:{bb_bg};border:1px solid {bb_bdr};border-left:4px solid {bb_bdr};
-                    border-radius:8px;padding:16px;height:100%">
-          <div style="font-size:10px;font-weight:700;color:#6B7280;letter-spacing:0.1em;
-                      text-transform:uppercase;margin-bottom:8px">
-            📊 Batch Evaluation Result
-          </div>
-          <div style="font-size:14px;font-weight:600;color:{bb_col};margin-bottom:6px">
-            {bb_lbl}{' — ' + bt if bf else ''}
-          </div>
-          <div style="font-size:11px;color:#4B5563;line-height:1.6;margin-bottom:8px">
-            {be[:180]}
-          </div>
-          <div style="font-size:10px;color:#9CA3AF">
-            Confidence: {bc} · Engine: {bdb.replace('_',' ').title()}
-          </div>
-          <div style="margin-top:8px;font-size:10px;font-weight:600;
-                      color:{'#16A34A' if pred_ok else '#DC2626'}">
-            {'✓ Prediction correct' if pred_ok else '✗ Prediction incorrect'}
-          </div>
-        </div>""", unsafe_allow_html=True)
-
-    # Live result
-    with col_live:
-        with st.spinner("Running live analysis..."):
-            final, rr, lr = run_fraud_check(claim, rule_engine, llm_checker)
-        lf = final["fraud_detected"]
-        lt = final.get("fraud_type") or "None"
-        le = final.get("explanation","")
-        lb_bg  = "#FEF2F2" if lf else "#F0FDF4"
-        lb_bdr = "#DC2626" if lf else "#16A34A"
-        lb_col = "#DC2626" if lf else "#16A34A"
-        lb_lbl = "🚨 Fraud" if lf else "✅ Legitimate"
-        match = (lf == bf)
-        st.markdown(f"""
-        <div style="background:{lb_bg};border:1px solid {lb_bdr};border-left:4px solid {lb_bdr};
-                    border-radius:8px;padding:16px;height:100%">
-          <div style="font-size:10px;font-weight:700;color:#6B7280;letter-spacing:0.1em;
-                      text-transform:uppercase;margin-bottom:8px">
-            ⚡ Live Analysis Result
-          </div>
-          <div style="font-size:14px;font-weight:600;color:{lb_col};margin-bottom:6px">
-            {lb_lbl}{' — ' + lt if lf else ''}
-          </div>
-          <div style="font-size:11px;color:#4B5563;line-height:1.6;margin-bottom:8px">
-            {le[:180]}
-          </div>
-          <div style="font-size:10px;color:#9CA3AF">
-            Confidence: {final.get('confidence','')} · Engine: {final.get('engine','')}
-          </div>
-          <div style="margin-top:8px;font-size:10px;font-weight:600;
-                      color:{'#16A34A' if match else '#D97706'}">
-            {'✓ Matches batch result' if match else '⚠ Differs from batch (LLM non-determinism)'}
-          </div>
-        </div>""", unsafe_allow_html=True)
-
-    # Engine details expander
-    with st.expander("Engine details (live run)"):
-        c1, c2 = st.columns(2)
-        with c1:
-            st.markdown("**Rule Engine**")
-            st.write("Status:", "Flagged ⚠️" if rr.get("fraud_detected") else "Clear ✓")
-            if rr.get("explanation"): st.caption(rr["explanation"][:250])
-        with c2:
-            st.markdown("**LLM Reasoning Layer**")
-            if lr.get("skipped"):
-                st.write("Skipped — rule engine already flagged.")
-            else:
-                st.write("Status:", "Flagged ⚠️" if lr.get("fraud_detected") else "Clear ✓")
-                st.write("Confidence:", lr.get("confidence","").upper())
-                if lr.get("explanation"): st.caption(lr["explanation"][:250])
+    render_verdict(final, rr, lr)
 
 
 def _show_extracted_fields(claim):
