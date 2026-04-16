@@ -64,6 +64,7 @@ from collections import defaultdict  # for grouping results
 # ── File paths ─────────────────────────────────────────────────────────────────
 BASE_DIR    = Path(__file__).resolve().parent.parent
 NCCI_PATH   = BASE_DIR / "data" / "ncci_edits.xlsx"
+NCCI_CSV    = BASE_DIR / "data" / "ncci_pairs.csv"
 PARSED_DIR  = BASE_DIR / "data" / "edi_parsed"   # parsed EDI claims
 RESULTS_DIR = BASE_DIR / "data" / "rule_results"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -106,6 +107,13 @@ KNOWN_BUNDLES = {
     ("99213", "99212"): "Cannot bill two E&M visit levels for the same patient on the same day",
     ("99214", "99213"): "Cannot bill two E&M visit levels for the same patient on the same day",
     ("99215", "99214"): "Cannot bill two E&M visit levels for the same patient on the same day",
+    # BMP bundles — 80048 includes all these components
+    ("80048", "82310"): "Basic metabolic panel (80048) already includes calcium (82310) — billing both is unbundling",
+    ("80048", "82374"): "Basic metabolic panel (80048) already includes CO2/bicarbonate (82374)",
+    ("80048", "82435"): "Basic metabolic panel (80048) already includes chloride (82435)",
+    ("80048", "82565"): "Basic metabolic panel (80048) already includes creatinine (82565)",
+    ("80053", "82310"): "Comprehensive metabolic panel (80053) already includes calcium (82310)",
+    ("80053", "84520"): "Comprehensive metabolic panel (80053) already includes BUN (84520)",
 }
 
 
@@ -116,30 +124,39 @@ KNOWN_BUNDLES = {
 
 def load_ncci_table(ncci_path):
     """
-    Loads the NCCI PTP edit table into a Python dictionary for fast lookup.
+    Loads the NCCI PTP edit table from CSV (preferred) or XLSX fallback.
 
-    The NCCI table has 675,000+ rows. Each row defines a pair of CPT codes
-    that cannot be billed together (or can only be billed together with
-    a specific modifier).
-
-    Structure of each row:
-        Column 1 (index 0): Column 1 code (comprehensive / primary code)
-        Column 2 (index 1): Column 2 code (component / secondary code)
-        Modifier (index 5): 0 = never allowed, 1 = allowed with modifier, 9 = N/A
-
-    We build a dict: {(col1_code, col2_code): modifier_indicator}
-    This lets us check any code pair in O(1) constant time.
-
-    Returns:
-        A dict mapping (code1, code2) tuples to modifier indicator ('0' or '1')
-        Returns empty dict if file not found (graceful degradation)
+    Tries ncci_pairs.csv first — small, fast, works on Streamlit Cloud.
+    Falls back to ncci_edits.xlsx if CSV not found.
+    Falls back to KNOWN_BUNDLES only if neither file exists.
     """
+    import csv
     ncci_dict = {}
 
-    if not Path(ncci_path).exists():
-        print(f"  ⚠️  NCCI file not found at {ncci_path}")
-        print(f"  Using built-in known bundles only.")
+    # Try CSV first — much smaller, no file size issues on Streamlit Cloud
+    csv_path = NCCI_CSV
+    if csv_path.exists():
+        print(f"  Loading NCCI pairs from {csv_path.name}...")
+        start = time.time()
+        with open(csv_path, newline='') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                c1 = row.get('col1','').strip()
+                c2 = row.get('col2','').strip()
+                mi = row.get('modifier_indicator','0').strip()
+                if c1 and c2:
+                    ncci_dict[(c1, c2)] = mi
+        elapsed = time.time() - start
+        print(f"  ✅ Loaded {len(ncci_dict):,} NCCI pairs from CSV in {elapsed:.1f}s")
         return ncci_dict
+
+    # Fallback: try original XLSX
+    if not Path(ncci_path).exists():
+        print(f"  ⚠️  NCCI files not found — using built-in bundles only.")
+        return ncci_dict
+
+    print(f"  Loading NCCI edit table from {Path(ncci_path).name}...")
+    start = time.time()
 
     print(f"  Loading NCCI edit table from {Path(ncci_path).name}...")
     start = time.time()
