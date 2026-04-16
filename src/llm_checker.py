@@ -145,9 +145,14 @@ CMS FEE SCHEDULE:
 
 DECISION RULES — apply in order:
 1. If a CRITICAL note above applies to this claim → fraud_detected=true, HIGH confidence, no exceptions
-2. If specialty procedure (oncology, cardiac, surgical) has unrelated diagnosis → Diagnosis Mismatch, HIGH confidence
-3. If total billed is >400% of Medicare rate → Upcoding, MEDIUM confidence
-4. If no clinical red flags and price is reasonable → legitimate
+2. If specialty procedure has no valid clinical relationship to the diagnosis → Diagnosis Mismatch, HIGH confidence
+3. Upcoding requires BOTH conditions to be true:
+   a. The procedure code billed represents higher complexity than the diagnosis clinically justifies (e.g. billing most complex office visit 99215 for a simple cold)
+   b. AND the price exceeds 400% of Medicare rate
+   If only price is high but the procedure is clinically justified → NOT upcoding
+   If only code complexity is questionable but price is normal → flag with LOW confidence only
+4. If the procedure is the correct, standard-of-care treatment for the diagnosis → fraud_detected=false regardless of price
+5. If no clinical red flags → fraud_detected=false
 
 Respond ONLY with valid JSON, no other text:
 {{
