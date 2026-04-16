@@ -101,34 +101,36 @@ def pdf_to_image(pdf_path):
 
 def remove_red_grid(image):
     """
-    IMPROVEMENT A: Extract green channel to eliminate red CMS-1500 grid.
+    IMPROVEMENT A: Remove red CMS-1500 grid from real scanned forms.
 
-    Real CMS-1500 forms are printed with the form structure (boxes, field
-    labels, dividing lines) in RED ink. The provider's filled-in data is
-    in BLACK. This is a deliberate design feature intended for exactly this
-    purpose — software can strip the red layer to read only the data.
+    Detects whether the image contains significant red ink (real scanned form)
+    or is a clean digital PDF (black on white, no red grid).
 
-    How it works:
-    - Red pixels have high R value, low G value
-    - Black pixels have low R, low G, low B values
-    - Green channel: red → white (disappears), black → dark (stays)
-
-    Result: preprinted labels like "24D. PROCEDURES, SERVICES" vanish.
-    Only the actual billing codes typed into the boxes remain.
-
-    For PDFs that aren't real CMS-1500 scans (our generated ones),
-    the image is purely black on white — extracting the green channel
-    still works correctly because black has equal low values in all channels.
+    For real scanned forms: extract green channel — red disappears, black stays.
+    For digital PDFs: convert to greyscale normally — red channel removal
+    would destroy black text since black has low values in all channels.
     """
-    # Convert to RGB first if needed
     if image.mode != 'RGB':
         image = image.convert('RGB')
 
-    # Split into R, G, B channels
-    r, g, b = image.split()
+    import numpy as np
+    arr = np.array(image)
+    r, g, b = arr[:,:,0], arr[:,:,1], arr[:,:,2]
 
-    # Use green channel — red ink disappears, black text stays
-    return g
+    # Detect red ink: pixels where R is high (>150) but G and B are low (<100)
+    # This is the signature of red CMS-1500 grid ink
+    red_pixels = ((r > 150) & (g < 100) & (b < 100)).sum()
+    total_dark = (r < 200).sum()  # all non-white pixels
+
+    is_real_scanned_form = (total_dark > 0 and red_pixels / max(total_dark, 1) > 0.15)
+
+    if is_real_scanned_form:
+        # Real scanned form: extract green channel to remove red grid
+        _, green, _ = image.split()
+        return green
+    else:
+        # Digital/synthetic PDF: standard greyscale — preserve black text
+        return image.convert('L')
 
 
 # ── Step 3: Crop to procedure table ──────────────────────────────────────────
@@ -282,14 +284,17 @@ def fix_ocr_errors(text):
     for i, amt in enumerate(dollar_amounts):
         text = text.replace(amt, f'DOLLAR{i}PLACEHOLDER', 1)
 
-    # Fix ICD-10 I-codes: 125.10 → I25.10, 110 → I10
-    # Only fix when followed by decimal (e.g. 125.10) or at end of word
-    # NOT when followed by space+letters (street addresses like "100 MAIN ST")
+    # Fix ICD-10 I-codes with decimal: 125.10 → I25.10
     text = re.sub(r'\b1(\d{2}\.\w{1,4})\b', r'I\1', text)
-    # For standalone 3-digit I-codes (I10, I00), only fix when
-    # preceded by non-address context (after punctuation/newline/letter-dot-space)
-    text = re.sub(r'(?<=[A-L]\. )1(\d{2})(?!\d)(?! [A-Z])', r'I\1', text)
-    text = re.sub(r'(?<=[\n,;\t])1(\d{2})(?!\d)(?! [A-Z]{2,})', r'I\1', text)
+    # Fix standalone 3-digit I-codes after letter+space (box 21 context)
+    # e.g. 'a 110' → 'a I10', but NOT '100 MAIN ST' (followed by word)
+    text = re.sub(r'(?<=[a-zA-Z] )1(\d{2})(?!\d)(?! [A-Z]{2,})', r'I\1', text)
+
+    # Fix ICD-10 Z-codes with decimal: 200.00 → Z00.00
+    # Tesseract reads Z as 2: Z00.00 → 200.00
+    text = re.sub(r'\b2(\d{2}\.\w{1,4})\b', r'Z\1', text)
+    # Fix standalone Z-codes: 'a 200' → 'a Z00'
+    text = re.sub(r'(?<=[a-zA-Z] )2(\d{2})(?!\d)(?! [A-Z]{2,})', r'Z\1', text)
 
     # Fix ICD-10 O-codes: 009.90 → O09.90
     text = re.sub(r'\b0(\d{2}\.\w{1,4})\b', r'O\1', text)
