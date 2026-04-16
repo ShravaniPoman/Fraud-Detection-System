@@ -362,13 +362,30 @@ def extract_icd10_codes(text):
     """
     Extracts ICD-10-CM diagnosis codes. Call fix_ocr_errors() first.
     Deduplicates ICD codes (same diagnosis appearing twice is not fraud).
+    Validates codes appear in diagnosis context, not address/NPI/tax sections.
     """
-    codes = re.findall(r"\b([A-Z]\d{2}(?:\.\w{1,4})?)\b", text, re.IGNORECASE)
+    # Extract only the diagnosis section (box 21 area)
+    # Look for text between DIAGNOSIS label and DATE(S) OF SERVICE
+    diag_match = re.search(
+        r'DIAGNOSIS.*?(?:24A|DATE.*?SERVICE|CPT/HCPCS)',
+        text, re.DOTALL | re.IGNORECASE
+    )
+    search_text = diag_match.group() if diag_match else text
+
+    codes = re.findall(r"\b([A-Z]\d{2}(?:\.\w{1,4})?)\b", search_text, re.IGNORECASE)
     seen = set()
     result = []
     for code in codes:
         code_upper = code.upper()
-        if code_upper[0].isalpha() and code_upper not in seen:
+        if not (code_upper[0].isalpha() and len(code_upper) >= 3):
+            continue
+        # Skip single-letter followed by 2 digits if it looks like part of a number
+        # e.g. "I47" from "147/63" zip, "M02" from "M02118" zip+street
+        # Valid ICD codes must be preceded by whitespace or punctuation, not digits
+        pattern = rf'(?<![\d/]){re.escape(code_upper)}(?![\d])'
+        if not re.search(pattern, search_text, re.IGNORECASE):
+            continue
+        if code_upper not in seen:
             seen.add(code_upper)
             result.append(code_upper)
     return result
