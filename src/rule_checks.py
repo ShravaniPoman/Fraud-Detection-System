@@ -201,6 +201,39 @@ def load_ncci_table(ncci_path):
 # Contains all 4 rule-based checks as methods
 # ══════════════════════════════════════════════════════════════════════════════
 
+
+# ── Panel reconstruction rules ────────────────────────────────────────────────
+# If a claim contains multiple component codes that together make up a panel,
+# it is unbundling even if neither code is the "comprehensive" code.
+# Pattern: billing 82465 + 82470 instead of 80061 (lipid panel)
+
+PANEL_COMPONENTS = {
+    # Panel code: (description, set of component codes that constitute it)
+    "80061": ("Lipid panel", {"82465", "82470", "83721"}),
+    "80048": ("Basic metabolic panel", {"82310", "82374", "82435", "82565", "84132", "84295", "84520", "82947"}),
+    "80053": ("Comprehensive metabolic panel", {"82040", "82247", "82248", "82310", "82374", "82435", "82565", "84155", "84460", "84450", "84132", "84295", "84520", "82947"}),
+    "85025": ("CBC with differential", {"85014", "85018", "85041", "85048", "85049"}),
+    "93306": ("Complete echo with Doppler", {"93303", "93304", "93320", "93321"}),
+}
+
+def check_panel_unbundling(cpt_codes):
+    """Detects when component tests are billed separately instead of as a panel."""
+    cpt_set = set(cpt_codes)
+    for panel_code, (panel_desc, components) in PANEL_COMPONENTS.items():
+        matching = cpt_set & components
+        # If 2+ components of a panel are present, flag as unbundling
+        if len(matching) >= 2:
+            return {
+                "fraud_detected":  True,
+                "fraud_type":      "Unbundling",
+                "confidence":      "high",
+                "rule_triggered":  "panel_component_unbundling",
+                "explanation":     f"Procedures {sorted(matching)} are individual components of {panel_code} ({panel_desc}). Billing them separately instead of as a panel is unbundling.",
+                "engine":          "Rule Engine",
+            }
+    return None
+
+
 class RuleEngine:
     """
     The rule-based fraud detection engine.
@@ -526,7 +559,14 @@ class RuleEngine:
             result["checked_by"]  = "rule_engine"
             return result
 
-        # Check 3: Unbundling (uses NCCI table)
+        # Check 3a: Panel component unbundling (component codes billed separately)
+        result = check_panel_unbundling(claim.get("procedure_codes", []))
+        if result:
+            result["claim_id"]   = claim_id
+            result["checked_by"] = "rule_engine"
+            return result
+
+        # Check 3b: Unbundling (uses NCCI table)
         result = self.check_unbundling(claim)
         if result:
             result["claim_id"]    = claim_id

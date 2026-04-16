@@ -146,13 +146,17 @@ CMS FEE SCHEDULE:
 DECISION RULES — apply in order:
 1. If a CRITICAL note above applies to this claim → fraud_detected=true, HIGH confidence, no exceptions
 2. If specialty procedure has no valid clinical relationship to the diagnosis → Diagnosis Mismatch, HIGH confidence
-3. Upcoding requires BOTH conditions to be true:
-   a. The procedure code billed represents higher complexity than the diagnosis clinically justifies (e.g. billing most complex office visit 99215 for a simple cold)
-   b. AND the price exceeds 400% of Medicare rate
-   If only price is high but the procedure is clinically justified → NOT upcoding
-   If only code complexity is questionable but price is normal → flag with LOW confidence only
-4. If the procedure is the correct, standard-of-care treatment for the diagnosis → fraud_detected=false regardless of price
-5. If no clinical red flags → fraud_detected=false
+3. Upcoding requires BOTH of these to be true simultaneously:
+   a. The SPECIFIC procedure code billed is at a HIGHER complexity or resource level than the diagnosis clinically justifies
+      (e.g. billing 99215 "high complexity E&M" for a simple cold — 99213 would be appropriate)
+      NOTE: Specialty procedures like echocardiograms (93306), cardiac caths (93458), ECGs (93000/93010), chest X-rays (71046)
+      are NEVER upcoded by price alone — they are single-level procedures with no "simpler version"
+   b. AND the price exceeds 400% of Medicare allowed rate
+4. Single-level specialty procedures (imaging, cardiac, surgical) with matching diagnoses are NEVER upcoding
+   regardless of billed amount — they have no simpler alternative code to downcode to
+5. If the procedure is standard-of-care for the diagnosis → fraud_detected=false regardless of price
+6. Code Substitution: flag only if the CPT code clearly does not match the documented clinical indication
+7. If no clinical red flags → fraud_detected=false
 
 Respond ONLY with valid JSON, no other text:
 {{

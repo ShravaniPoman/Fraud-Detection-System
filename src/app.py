@@ -533,7 +533,7 @@ def render_submit(rule_engine, llm_checker, all_claims):
     st.markdown('<div style="border-bottom:1px solid #E5E7EB;margin:0 0 4px 0"></div>',
                 unsafe_allow_html=True)
 
-    tab1, tab2, tab3 = st.tabs(["  EDI 837P Upload  ","  PDF Upload  ","  Sample from Dataset  "])
+    tab1, tab3 = st.tabs(["  EDI 837P Upload  ","  Sample from Dataset  "])
 
     # ── EDI TAB ────────────────────────────────────────────────────────────────
     with tab1:
@@ -594,57 +594,7 @@ def render_submit(rule_engine, llm_checker, all_claims):
                         tmp_path.unlink(missing_ok=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # ── PDF TAB ────────────────────────────────────────────────────────────────
-    with tab2:
-        st.markdown("<div style='padding:24px'>", unsafe_allow_html=True)
-        col1, col2 = st.columns([1,1], gap="large")
-        with col1:
-            st.markdown("""
-            <div style="background:white;border:1px solid #E5E7EB;border-radius:8px;
-                        padding:24px;margin-bottom:16px">
-              <div style="font-size:13px;font-weight:600;color:#1B2B45;margin-bottom:6px">CMS-1500 PDF Claim Form</div>
-              <div style="font-size:12px;color:#6B7280;line-height:1.6;margin-bottom:12px">
-                Upload a CMS-1500 claim form as a PDF. The system applies Optical
-                Character Recognition (OCR) to extract billing codes, diagnosis codes,
-                and billed amounts, then runs the complete fraud detection pipeline.
-              </div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap">
-                <span style="background:#EFF6FF;color:#1D4ED8;font-size:11px;font-weight:500;
-                             padding:3px 10px;border-radius:4px">CMS-1500 Form</span>
-                <span style="background:#EFF6FF;color:#1D4ED8;font-size:11px;font-weight:500;
-                             padding:3px 10px;border-radius:4px">OCR Extraction</span>
-                <span style="background:#EFF6FF;color:#1D4ED8;font-size:11px;font-weight:500;
-                             padding:3px 10px;border-radius:4px">~10s processing</span>
-              </div>
-            </div>""", unsafe_allow_html=True)
-
-            if not OCR_AVAILABLE:
-                st.warning("OCR not installed. Run:\n```\npip install pytesseract Pillow pdf2image\nbrew install tesseract poppler\n```")
-            f = st.file_uploader("PDF claim form (.pdf)", type=["pdf"],
-                                  key="pdf_up", label_visibility="visible")
-            if f and OCR_AVAILABLE:
-                st.markdown(f"""
-                <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:6px;
-                            padding:10px 14px;font-size:12px;color:#166534;margin:8px 0">
-                  ✓ &nbsp;File loaded: <b>{f.name}</b>
-                </div>""", unsafe_allow_html=True)
-                if st.button("Run Fraud Analysis →", key="go_pdf"):
-                    with tempfile.NamedTemporaryFile(mode='wb',suffix='.pdf',delete=False) as tmp:
-                        tmp.write(f.read()); tmp_path = Path(tmp.name)
-                    try:
-                        with st.spinner("Running OCR on PDF..."):
-                            claim = process_pdf(tmp_path)
-                        if not claim or not claim.get("procedure_codes"):
-                            st.error("Could not extract billing codes. Ensure this is a CMS-1500 form.")
-                        else:
-                            with col2:
-                                _show_extracted_fields(claim)
-                                with st.spinner("Running fraud analysis..."):
-                                    final,rr,lr = run_fraud_check(claim,rule_engine,llm_checker)
-                                render_verdict(final,rr,lr)
-                    finally:
-                        tmp_path.unlink(missing_ok=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+    # PDF Upload tab hidden — EDI path is primary
 
     # ── SAMPLE TAB ─────────────────────────────────────────────────────────────
     with tab3:
