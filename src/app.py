@@ -154,10 +154,10 @@ div[data-testid="stFileUploader"] > div { border:1.5px dashed #D1D5DB !important
 """, unsafe_allow_html=True)
 
 # ── Cached resources ──────────────────────────────────────────────────────────
-@st.cache_resource(show_spinner="Loading fraud detection engine...")
+@st.cache_resource(show_spinner="Loading fraud detection engine...", max_entries=1)
 def load_rule_engine():
     if not RULES_AVAILABLE: return None
-    try: return RuleEngine(ncci_path=NCCI_PATH)
+    try: return RuleEngine()
     except: return None
 
 @st.cache_resource(show_spinner="Connecting to AI layer...")
