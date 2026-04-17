@@ -39,7 +39,6 @@ except ImportError:
 
 CLAIMS_JSON = BASE_DIR / "data" / "raw_claims" / "claims.json"
 NCCI_PATH   = BASE_DIR / "data" / "ncci_edits.xlsx"
-NCCI_CSV    = BASE_DIR / "data" / "ncci_pairs.csv"
 
 st.set_page_config(page_title="ClaimGuard", page_icon="🛡️",
                    layout="wide", initial_sidebar_state="expanded")
@@ -113,6 +112,39 @@ section[data-testid="stMain"] button[data-testid="baseButton-secondary"]:has(> d
     opacity: 0.001 !important; font-size: 0 !important;
 }
 
+/* Top submit button — must be fully visible, override transparent overlay rule */
+[data-testid="stButton-top_submit"] > button {
+    background: #1B2B45 !important;
+    color: white !important;
+    border: none !important;
+    opacity: 1 !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    padding: 8px 16px !important;
+    border-radius: 6px !important;
+    margin-top: 0 !important;
+    height: auto !important;
+    position: static !important;
+    z-index: auto !important;
+}
+
+/* EDI run button — also must be visible */
+[data-testid="stButton-go_edi"] > button,
+[data-testid="stButton-go_pdf"] > button {
+    background: #2563EB !important;
+    color: white !important;
+    border: none !important;
+    opacity: 1 !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    padding: 8px 20px !important;
+    border-radius: 6px !important;
+    margin-top: 0 !important;
+    height: auto !important;
+    position: static !important;
+    z-index: auto !important;
+}
+
 /* Back/home buttons — override to look minimal */
 [data-testid="stButton-submit_home"] > button,
 [data-testid="stButton-perf_home"] > button {
@@ -155,10 +187,10 @@ div[data-testid="stFileUploader"] > div { border:1.5px dashed #D1D5DB !important
 """, unsafe_allow_html=True)
 
 # ── Cached resources ──────────────────────────────────────────────────────────
-@st.cache_resource(show_spinner="Loading fraud detection engine...", max_entries=1)
+@st.cache_resource(show_spinner="Loading fraud detection engine...")
 def load_rule_engine():
     if not RULES_AVAILABLE: return None
-    try: return RuleEngine()
+    try: return RuleEngine(ncci_path=NCCI_PATH)
     except: return None
 
 @st.cache_resource(show_spinner="Connecting to AI layer...")
@@ -993,13 +1025,13 @@ def main():
     # ── MAIN CONTENT ──────────────────────────────────────────────────────────
     if st.session_state.view == "table":
         # Top bar: search + action buttons
-        search_col, btn1 = st.columns([6, 1])
+        search_col, btn1 = st.columns([4, 1.5])
         with search_col:
             search = st.text_input("search",
                 placeholder="🔍  Search by claim ID, patient, provider, or billing code...",
                 label_visibility="collapsed", key="search_q")
         with btn1:
-            if st.button("＋ Submit Claim", key="top_submit"):
+            if st.button("＋ Submit Claim", key="top_submit", use_container_width=True):
                 st.session_state.view = "submit"; st.rerun()
 
         render_claims_table(all_claims, search, st.session_state.filter,
