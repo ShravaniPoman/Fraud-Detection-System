@@ -51,6 +51,18 @@ html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
 .stApp { background: #F2F4F7; }
 .block-container { padding: 0 !important; max-width: 100% !important; }
 
+/* ── TOOLBAR CONTAINER — flush, no extra Streamlit padding ───────── */
+.block-container > div > div > div[data-testid="stVerticalBlock"] > div:has(.stTextInput) {
+    background: white;
+    border-bottom: 1px solid #E5E7EB;
+    padding: 8px 24px !important;
+    margin: 0 !important;
+}
+/* Vertically center toolbar columns */
+[data-testid="column"] { align-items: center !important; }
+.stTextInput > div { margin-bottom: 0 !important; }
+.stTextInput > label { display: none !important; }
+
 section[data-testid="stSidebar"] { background: #1B2B45 !important; min-width:220px !important; max-width:220px !important; }
 section[data-testid="stSidebar"] > div { background:#1B2B45 !important; padding:0 !important; }
 [data-testid="collapsedControl"] { display:none !important; }
@@ -111,6 +123,22 @@ section[data-testid="stMain"] .stButton > button:hover {
     color: #374151 !important;
 }
 
+/* ── SUBMIT CLAIM button — compact, right-aligned feel ───────────── */
+[data-testid="stButton-top_submit"] > button {
+    background: #2563EB !important;
+    color: white !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    padding: 7px 16px !important;
+    border-radius: 6px !important;
+    min-height: 36px !important;
+    height: 36px !important;
+    letter-spacing: 0.01em !important;
+}
+[data-testid="stButton-top_submit"] > button:hover {
+    background: #1D4ED8 !important;
+}
+
 /* ── ROW OVERLAY BUTTONS — invisible click targets only ───────────── */
 /* Only buttons whose text starts with "CLM" (claim IDs) get hidden */
 [data-testid^="stButton-row_CLM"] > button {
@@ -118,9 +146,9 @@ section[data-testid="stMain"] .stButton > button:hover {
     color: transparent !important;
     border: none !important;
     box-shadow: none !important;
-    margin-top: -48px !important;
-    height: 48px !important;
-    min-height: 48px !important;
+    margin-top: -54px !important;
+    height: 54px !important;
+    min-height: 54px !important;
     width: 100% !important;
     position: relative !important;
     z-index: 10 !important;
@@ -132,23 +160,25 @@ section[data-testid="stMain"] .stButton > button:hover {
 /* ── SIDEBAR BUTTONS ──────────────────────────────────────────────── */
 section[data-testid="stSidebar"] .stButton > button {
     background: transparent !important;
-    color: #9CA3AF !important;
+    color: #94A3B8 !important;
     text-align: left !important;
     font-size: 12px !important;
     font-weight: 400 !important;
-    padding: 7px 16px !important;
+    padding: 6px 14px !important;
     border: none !important;
-    border-radius: 4px !important;
+    border-radius: 5px !important;
     justify-content: flex-start !important;
     opacity: 1 !important;
     height: auto !important;
-    min-height: unset !important;
+    min-height: 30px !important;
     margin-top: 0 !important;
     position: static !important;
+    letter-spacing: 0.01em !important;
+    transition: background 0.1s, color 0.1s !important;
 }
 section[data-testid="stSidebar"] .stButton > button:hover {
     background: #243650 !important;
-    color: white !important;
+    color: #E2E8F0 !important;
 }
 
 /* ── TABS ─────────────────────────────────────────────────────────── */
@@ -186,18 +216,6 @@ div[data-testid="stFileUploader"] > div { border:1.5px dashed #D1D5DB !important
 .cg-metric-chip.red { background:#FEF2F2; color:#991B1B; }
 .cg-metric-chip.green { background:#F0FDF4; color:#15803D; }
 .cg-metric-chip.blue { background:#EFF6FF; color:#1E40AF; }
-
-/* ── QUICK LOAD BUTTONS ───────────────────────────────────────────── */
-[data-testid^="stButton-quick_"] > button {
-    background:#F8FAFC !important; color:#1B2B45 !important;
-    border:1px solid #E5E7EB !important; font-size:11px !important;
-    font-weight:400 !important; padding:5px 10px !important;
-    border-radius:6px !important; text-align:left !important;
-    min-height:unset !important;
-}
-[data-testid^="stButton-quick_"] > button:hover {
-    background:#EFF6FF !important; border-color:#BFDBFE !important; color:#1E40AF !important;
-}
 
 /* ── EMPTY STATE ──────────────────────────────────────────────────── */
 .cg-empty { padding:48px 24px; text-align:center; background:white; }
@@ -459,14 +477,19 @@ def render_claims_table(all_claims, search_q, fraud_filter, rule_engine, llm_che
     exp_f   = sum(c.get("total_charge",0) for c in filtered if c.get("fraud_indicator"))
 
     # Header bar
+    active_label = fraud_filter if fraud_filter and fraud_filter != "All Claims" else "All Claims"
     st.markdown(f"""
-    <div style="background:white;border-bottom:1px solid #E5E7EB;padding:12px 24px;
+    <div style="background:white;border-bottom:1px solid #E5E7EB;padding:11px 24px;
                 display:flex;align-items:center;justify-content:space-between">
-      <span style="font-size:14px;font-weight:600;color:#1B2B45">Claims Registry</span>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:13px;font-weight:600;color:#1B2B45">Claims Registry</span>
+        <span style="font-size:11px;background:#F1F5F9;color:#64748B;padding:2px 9px;
+                     border-radius:10px;font-weight:500">{active_label}</span>
+      </div>
       <div style="display:flex;align-items:center;gap:20px;font-size:12px;color:#6B7280">
         <span>{total_f:,} claims</span>
         <span style="color:#DC2626;font-weight:500">{fraud_f:,} flagged</span>
-        <span>Fraud exposure: <span style="font-family:'DM Mono',monospace;color:#DC2626;font-weight:600">${exp_f:,.2f}</span></span>
+        <span>Exposure: <span style="font-family:'DM Mono',monospace;color:#DC2626;font-weight:600">${exp_f:,.0f}</span></span>
       </div>
     </div>""", unsafe_allow_html=True)
 
@@ -528,8 +551,9 @@ def render_claims_table(all_claims, search_q, fraud_filter, rule_engine, llm_che
         # Visual row — pure HTML, no interactivity
         st.markdown(f"""
         <div style="background:{row_bg};border-bottom:1px solid {row_bdr};
-                    padding:10px 24px;display:grid;grid-template-columns:{GRID};
-                    gap:16px;align-items:center;min-height:46px">
+                    padding:13px 24px;display:grid;grid-template-columns:{GRID};
+                    gap:16px;align-items:center;min-height:54px;
+                    transition:background 0.1s">
           <div style="font-family:'DM Mono',monospace;font-size:12px;font-weight:500;
                       color:#1B2B45;white-space:nowrap">{cid}</div>
           <div style="font-size:12px;color:#6B7280;white-space:nowrap">{c.get("date","")}</div>
@@ -609,81 +633,28 @@ def render_submit(rule_engine, llm_checker, all_claims):
             # Info card
             st.markdown("""
             <div style="background:white;border:1px solid #E5E7EB;border-radius:8px;
-                        padding:20px 24px;margin-bottom:16px">
-              <div style="font-size:13px;font-weight:600;color:#1B2B45;margin-bottom:6px">
-                EDI 837P Electronic Claim
+                        padding:16px 20px;margin-bottom:14px">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                <div style="width:28px;height:28px;background:#EFF6FF;border-radius:6px;
+                            display:flex;align-items:center;justify-content:center;
+                            font-size:14px;flex-shrink:0">📋</div>
+                <div style="font-size:13px;font-weight:600;color:#1B2B45">EDI 837P Upload</div>
               </div>
-              <div style="font-size:12px;color:#6B7280;line-height:1.6;margin-bottom:16px">
-                The X12 837P format is used by approximately 95% of US insurance claims
-                under the HIPAA Electronic Transactions Standard. Upload a .edi or .txt
-                file containing a valid 837P transaction set.
+              <div style="font-size:12px;color:#6B7280;line-height:1.6;margin-bottom:12px">
+                Upload an X12 837P electronic claim file. This is the standard format
+                used by US insurance providers under HIPAA mandate.
               </div>
-              <div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:6px;
-                          padding:12px 16px;font-family:'DM Mono',monospace;font-size:11px;
-                          color:#6B7280;line-height:1.8">
+              <div style="background:#F8FAFC;border:1px solid #E5E7EB;border-radius:6px;
+                          padding:10px 14px;font-family:'DM Mono',monospace;font-size:10px;
+                          color:#94A3B8;line-height:1.9">
                 ISA*00*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*ZZ*FRAUDDETECT...<br>
                 HI*ABK:J06.9~<br>
                 SV1*HC:99213*92.20*UN*1***A~
               </div>
             </div>""", unsafe_allow_html=True)
 
-            # Quick-load demo files
-            st.markdown("""
-            <div style="font-size:10px;font-weight:600;color:#9CA3AF;letter-spacing:0.08em;
-                        text-transform:uppercase;margin-bottom:6px">Quick load demo claim</div>""",
-                unsafe_allow_html=True)
-            demo_files = {
-                "CLM99001 — Phantom Billing":    "CLM99001.edi",
-                "CLM99002 — Duplicate Billing":  "CLM99002.edi",
-                "CLM99003 — Modifier Abuse":     "CLM99003.edi",
-                "CLM99004 — Legitimate claim":   "CLM99004.edi",
-            }
-            qcols = st.columns(2)
-            for qi, (label, fname) in enumerate(demo_files.items()):
-                with qcols[qi % 2]:
-                    edi_path = BASE_DIR / "data" / "edi_new" / fname
-                    if st.button(label, key=f"quick_{fname}", use_container_width=True,
-                                 disabled=not edi_path.exists()):
-                        try:
-                            claim = parse_edi_file(edi_path)
-                            if claim and claim.get("procedure_codes"):
-                                precomputed  = load_precomputed_results()
-                                cid          = claim.get("claim_id","")
-                                batch_result = precomputed.get(cid)
-                                if batch_result:
-                                    bf  = batch_result.get("fraud_detected", False)
-                                    bt  = batch_result.get("fraud_type") or "None"
-                                    bc  = (batch_result.get("confidence") or "high").upper()
-                                    be  = batch_result.get("explanation","") or "All checks passed."
-                                    bdb = batch_result.get("decision_by","rule_engine")
-                                    final = {"fraud_detected":bf,"fraud_type":bt if bf else None,
-                                             "confidence":bc,"explanation":be,
-                                             "engine":bdb.replace("_"," ").title()}
-                                    decided_by_rule = "rule" in bdb.lower()
-                                    if bf and decided_by_rule:
-                                        rr = {"fraud_detected":True,"fraud_type":bt,"explanation":be}
-                                        lr = {"fraud_detected":False,"confidence":"high","explanation":"Skipped.","skipped":True}
-                                    elif bf:
-                                        rr = {"fraud_detected":False,"explanation":"All rule checks passed."}
-                                        lr = {"fraud_detected":True,"fraud_type":bt,"confidence":bc.lower(),"explanation":be}
-                                    else:
-                                        rr = {"fraud_detected":False,"explanation":"All rule checks passed."}
-                                        lr = {"fraud_detected":False,"confidence":"high","explanation":"No fraud found."}
-                                else:
-                                    with st.status("Running live analysis…", expanded=True) as qs:
-                                        st.write("Running rule-based checks…")
-                                        final, rr, lr = run_fraud_check(claim, rule_engine, llm_checker)
-                                        st.write("AI reasoning complete.")
-                                        qs.update(label="Complete", state="complete", expanded=False)
-                                st.session_state.edi_claim  = claim
-                                st.session_state.edi_result = (final, rr, lr, batch_result is not None)
-                                st.rerun()
-                        except Exception as e:
-                            st.error(f"Could not load {fname}: {e}")
-            st.markdown("<div style='margin-bottom:12px'></div>", unsafe_allow_html=True)
-
-            # File uploader — always visible
-            f = st.file_uploader("Or upload your own EDI file (.edi, .txt)", type=["edi", "txt"],
+            # File uploader
+            f = st.file_uploader("Upload EDI file (.edi, .txt)", type=["edi", "txt"],
                                  key="edi_up", label_visibility="visible")
 
             if f:
@@ -1111,23 +1082,31 @@ def main():
 
         # Filter label
         st.markdown("""
-        <div style="padding:12px 16px 4px">
-          <div style="font-size:9px;font-weight:600;color:#4B5563;letter-spacing:0.1em;text-transform:uppercase">Filter by Type</div>
+        <div style="padding:14px 16px 6px">
+          <div style="font-size:10px;font-weight:600;color:#94A3B8;letter-spacing:0.1em;text-transform:uppercase">
+            Fraud Categories
+          </div>
         </div>""", unsafe_allow_html=True)
 
         # Nav items — SINGLE button per type, styled as nav
-        dot_colors = {
-            "All Claims":"#6B7280","Legitimate":"#4ADE80",
-            "Upcoding":"#F87171","Code Padding":"#F87171","Phantom Billing":"#F87171",
-            "Diagnosis Mismatch":"#FCD34D","Code Substitution":"#FCD34D","Modifier Abuse (-59)":"#FCD34D",
-            "Duplicate Billing":"#60A5FA","Unbundling":"#60A5FA","Screening Code Abuse":"#60A5FA",
+        nav_icons = {
+            "All Claims": "≡",
+            "Legitimate": "✓",
+            "Code Padding": "＋",
+            "Code Substitution": "⇄",
+            "Diagnosis Mismatch": "⚡",
+            "Duplicate Billing": "⊕",
+            "Modifier Abuse (-59)": "⊘",
+            "Phantom Billing": "◎",
+            "Screening Code Abuse": "◈",
+            "Upcoding": "↑",
+            "Unbundling": "⊞",
         }
         for ft in all_types:
             cnt = total if ft=="All Claims" else type_counts.get(ft,0)
             is_active = (ft==st.session_state.filter and st.session_state.view=="table")
-            dot = dot_colors.get(ft,"#6B7280")
-            # Label: dot + name + count, all in one button
-            nav_label = f"● {ft}   {cnt}" if is_active else f"· {ft}   {cnt}"
+            icon = nav_icons.get(ft, "·")
+            nav_label = f"{icon}  {ft}   {cnt}" if is_active else f"{icon}  {ft}   {cnt}"
             if st.button(nav_label, key=f"nav_{ft}", use_container_width=True):
                 st.session_state.filter = ft
                 st.session_state.view = "table"
@@ -1173,6 +1152,28 @@ def main():
 
     # ── MAIN CONTENT ──────────────────────────────────────────────────────────
     if st.session_state.view == "table":
+        # ── Page header ───────────────────────────────────────────────────
+        st.markdown("""
+        <div style="background:white;border-bottom:1px solid #E5E7EB;
+                    padding:16px 24px 14px;display:flex;align-items:center;
+                    justify-content:space-between">
+          <div>
+            <div style="font-size:18px;font-weight:600;color:#1B2B45;line-height:1">
+              ClaimGuard
+            </div>
+            <div style="font-size:12px;color:#9CA3AF;margin-top:3px;letter-spacing:0.01em">
+              Healthcare Fraud Detection
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="display:inline-flex;align-items:center;gap:6px;background:#F0FDF4;
+                         border:1px solid #BBF7D0;border-radius:20px;padding:4px 12px">
+              <span style="width:6px;height:6px;border-radius:50%;background:#16A34A;display:inline-block"></span>
+              <span style="font-size:11px;font-weight:500;color:#15803D">Live · EDI 837P</span>
+            </span>
+          </div>
+        </div>""", unsafe_allow_html=True)
+
         # ── Metric cards row ──────────────────────────────────────────────
         fraud_pct = round(fraud_count / total * 100) if total else 0
         st.markdown(f"""
@@ -1199,24 +1200,28 @@ def main():
           </div>
         </div>""", unsafe_allow_html=True)
 
-        # ── Toolbar: search + submit button ───────────────────────────────
+        # ── Toolbar: search label + input + submit — all on ONE line ──────
         st.markdown("""
-        <div style="background:white;border-bottom:1px solid #E5E7EB;padding:10px 24px;
-                    display:flex;align-items:center;gap:12px">
-          <svg style="position:absolute;margin-left:10px;width:15px;height:15px;color:#9CA3AF;z-index:1;pointer-events:none"
-               viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="6.5" cy="6.5" r="5" stroke="#9CA3AF" stroke-width="1.3"/>
-            <path d="M10.5 10.5L13 13" stroke="#9CA3AF" stroke-width="1.3" stroke-linecap="round"/>
-          </svg>
+        <div style="background:white;border-bottom:1px solid #E5E7EB;
+                    padding:10px 24px 10px 24px;display:flex;align-items:center;gap:0">
         </div>""", unsafe_allow_html=True)
-        search_col, btn1 = st.columns([4, 1])
-        with search_col:
-            search = st.text_input("search",
-                placeholder="  Search by claim ID, patient, provider, or billing code...",
-                label_visibility="collapsed", key="search_q")
-        with btn1:
-            if st.button("＋ Submit Claim", key="top_submit", use_container_width=True):
-                st.session_state.view = "submit"; st.rerun()
+
+        with st.container():
+            toolbar_l, toolbar_search, toolbar_btn = st.columns([0.12, 3.5, 0.9])
+            with toolbar_l:
+                st.markdown(
+                    '<p style="font-size:13px;font-weight:500;color:#374151;'
+                    'margin:0;padding:9px 0;white-space:nowrap;">Search claims</p>',
+                    unsafe_allow_html=True)
+            with toolbar_search:
+                search = st.text_input(
+                    "search",
+                    placeholder="Search by Claim ID, Patient, Provider, CPT code...",
+                    label_visibility="collapsed",
+                    key="search_q")
+            with toolbar_btn:
+                if st.button("＋ Submit Claim", key="top_submit", use_container_width=True):
+                    st.session_state.view = "submit"; st.rerun()
 
         render_claims_table(all_claims, search, st.session_state.filter,
                             rule_engine, llm_checker)
