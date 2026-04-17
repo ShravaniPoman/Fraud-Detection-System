@@ -170,6 +170,37 @@ section[data-testid="stSidebar"] .stButton > button:hover {
 div[data-testid="stSelectbox"] > div > div { border-color:#E5E7EB !important; border-radius:6px !important; font-size:13px !important; }
 [data-testid="stExpander"] { border:1px solid #E5E7EB !important; border-radius:8px !important; background:white !important; }
 div[data-testid="stFileUploader"] > div { border:1.5px dashed #D1D5DB !important; border-radius:8px !important; background:white !important; }
+
+/* ── METRIC CARDS ROW ─────────────────────────────────────────────── */
+.cg-metric-row {
+    display:grid; grid-template-columns:repeat(4,1fr); gap:0;
+    background:white; border-bottom:1px solid #E5E7EB;
+}
+.cg-metric-card { padding:14px 24px; border-right:1px solid #E5E7EB; }
+.cg-metric-card:last-child { border-right:none; }
+.cg-metric-label { font-size:10px; font-weight:600; color:#9CA3AF; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:4px; }
+.cg-metric-value { font-size:24px; font-weight:300; font-family:'DM Mono',monospace; line-height:1; color:#1B2B45; }
+.cg-metric-value.red { color:#DC2626; }
+.cg-metric-value.teal { color:#0F766E; }
+.cg-metric-chip { display:inline-flex; align-items:center; font-size:11px; margin-top:5px; padding:2px 7px; border-radius:10px; font-weight:500; }
+.cg-metric-chip.red { background:#FEF2F2; color:#991B1B; }
+.cg-metric-chip.green { background:#F0FDF4; color:#15803D; }
+.cg-metric-chip.blue { background:#EFF6FF; color:#1E40AF; }
+
+/* ── QUICK LOAD BUTTONS ───────────────────────────────────────────── */
+[data-testid^="stButton-quick_"] > button {
+    background:#F8FAFC !important; color:#1B2B45 !important;
+    border:1px solid #E5E7EB !important; font-size:11px !important;
+    font-weight:400 !important; padding:5px 10px !important;
+    border-radius:6px !important; text-align:left !important;
+    min-height:unset !important;
+}
+[data-testid^="stButton-quick_"] > button:hover {
+    background:#EFF6FF !important; border-color:#BFDBFE !important; color:#1E40AF !important;
+}
+
+/* ── EMPTY STATE ──────────────────────────────────────────────────── */
+.cg-empty { padding:48px 24px; text-align:center; background:white; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -447,9 +478,9 @@ def render_claims_table(all_claims, search_q, fraud_filter, rule_engine, llm_che
         f'text-transform:uppercase;white-space:nowrap;overflow:hidden">{h}</div>'
         for h in HDR])
     st.markdown(f"""
-    <div style="background:#1B2B45;padding:9px 24px;
+    <div style="background:#F8FAFC;padding:9px 24px;border-bottom:1px solid #E5E7EB;
                 display:grid;grid-template-columns:{GRID};gap:16px;align-items:center">
-      {hdr_cells.replace('color:#6B7280', 'color:#A8C0D6')}
+      {hdr_cells}
     </div>""", unsafe_allow_html=True)
 
     BADGE = {
@@ -476,8 +507,8 @@ def render_claims_table(all_claims, search_q, fraud_filter, rule_engine, llm_che
     for i, c in enumerate(filtered[:50]):
         is_fraud = c.get("fraud_indicator", False)
         ft       = c.get("fraud_type","Legitimate")
-        row_bg   = "#FFFAFA" if is_fraud else "white"
-        row_bdr  = "#FEE2E2" if is_fraud else "#F3F4F6"
+        row_bg   = "white"
+        row_bdr  = "#F3F4F6"
 
         patient  = c.get("patient",{})
         pat_name = patient.get("name","—") if isinstance(patient,dict) else "—"
@@ -491,7 +522,7 @@ def render_claims_table(all_claims, search_q, fraud_filter, rule_engine, llm_che
         icd_desc = icdds[0][:26]+"…" if icdds and len(icdds[0])>26 else (icdds[0] if icdds else "")
         bb,bc    = BADGE.get(ft,("#F3F4F6","#374151"))
         bl       = BADGE_LBL.get(ft,ft[:14])
-        flag     = '<b style="color:#DC2626;font-size:12px">Yes</b>' if is_fraud else '<span style="color:#16A34A;font-size:12px">No</span>'
+        flag     = '<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:7px;height:7px;border-radius:50%;background:#DC2626;display:inline-block;flex-shrink:0"></span><span style="font-size:12px;font-weight:500;color:#DC2626">Yes</span></span>' if is_fraud else '<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:7px;height:7px;border-radius:50%;background:#16A34A;display:inline-block;flex-shrink:0"></span><span style="font-size:12px;color:#16A34A">No</span></span>'
         cid      = c.get("claim_id","")
 
         # Visual row — pure HTML, no interactivity
@@ -530,17 +561,31 @@ def render_claims_table(all_claims, search_q, fraud_filter, rule_engine, llm_che
             st.session_state.show_modal = True
             st.rerun()
 
-    if len(filtered) > 50:
+    if len(filtered) == 0:
+        st.markdown("""
+        <div class="cg-empty" style="background:white;border-bottom:1px solid #F3F4F6;padding:48px 24px;text-align:center">
+          <div style="font-size:28px;margin-bottom:12px">🔍</div>
+          <div style="font-size:14px;font-weight:500;color:#6B7280;margin-bottom:4px">No claims match your search</div>
+          <div style="font-size:12px;color:#9CA3AF">Try a different search term or clear the active filter</div>
+        </div>""", unsafe_allow_html=True)
+    elif len(filtered) > 50:
         st.markdown(f"""
         <div style="padding:10px 24px;background:white;border-top:1px solid #E5E7EB;
                     font-size:12px;color:#9CA3AF">
-          Showing first 50 of {len(filtered):,}. Use search or filter to narrow results.
+          Showing first 50 of {len(filtered):,} — use search or filter to narrow results.
         </div>""", unsafe_allow_html=True)
 
 
 # ── Submit view ───────────────────────────────────────────────────────────────
 def render_submit(rule_engine, llm_checker, all_claims):
-    # Top bar with back navigation
+    # Initialise session state keys for submit page
+    for k, v in [("edi_result", None), ("edi_claim", None),
+                 ("sample_result", None), ("sample_claim", None),
+                 ("sample_sel", None)]:
+        if k not in st.session_state:
+            st.session_state[k] = v
+
+    # Top bar
     col_back, col_title = st.columns([1, 8])
     with col_back:
         if st.button("← Home", key="submit_home"):
@@ -553,20 +598,25 @@ def render_submit(rule_engine, llm_checker, all_claims):
     st.markdown('<div style="border-bottom:1px solid #E5E7EB;margin:0 0 4px 0"></div>',
                 unsafe_allow_html=True)
 
-    tab1, tab3 = st.tabs(["  EDI 837P Upload  ","  Sample from Dataset  "])
+    tab1, tab3 = st.tabs(["  EDI 837P Upload  ", "  Sample from Dataset  "])
 
     # ── EDI TAB ────────────────────────────────────────────────────────────────
     with tab1:
-        st.markdown("<div style='padding:24px'>", unsafe_allow_html=True)
-        col1, col2 = st.columns([1,1], gap="large")
+        st.markdown("<div style='padding:24px 24px 0'>", unsafe_allow_html=True)
+        col1, col2 = st.columns([1, 1], gap="large")
+
         with col1:
+            # Info card
             st.markdown("""
-            <div style="background:white;border:1px solid #E5E7EB;border-radius:8px;padding:24px;margin-bottom:16px">
-              <div style="font-size:13px;font-weight:600;color:#1B2B45;margin-bottom:6px">EDI 837P Electronic Claim</div>
+            <div style="background:white;border:1px solid #E5E7EB;border-radius:8px;
+                        padding:20px 24px;margin-bottom:16px">
+              <div style="font-size:13px;font-weight:600;color:#1B2B45;margin-bottom:6px">
+                EDI 837P Electronic Claim
+              </div>
               <div style="font-size:12px;color:#6B7280;line-height:1.6;margin-bottom:16px">
                 The X12 837P format is used by approximately 95% of US insurance claims
-                under the HIPAA Electronic Transactions Standard. Upload a .edi or .txt file
-                containing a valid 837P transaction set.
+                under the HIPAA Electronic Transactions Standard. Upload a .edi or .txt
+                file containing a valid 837P transaction set.
               </div>
               <div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:6px;
                           padding:12px 16px;font-family:'DM Mono',monospace;font-size:11px;
@@ -577,49 +627,160 @@ def render_submit(rule_engine, llm_checker, all_claims):
               </div>
             </div>""", unsafe_allow_html=True)
 
-            f = st.file_uploader("EDI file (.edi, .txt)", type=["edi","txt"],
-                                  key="edi_up", label_visibility="visible")
+            # Quick-load demo files
+            st.markdown("""
+            <div style="font-size:10px;font-weight:600;color:#9CA3AF;letter-spacing:0.08em;
+                        text-transform:uppercase;margin-bottom:6px">Quick load demo claim</div>""",
+                unsafe_allow_html=True)
+            demo_files = {
+                "CLM99001 — Phantom Billing":    "CLM99001.edi",
+                "CLM99002 — Duplicate Billing":  "CLM99002.edi",
+                "CLM99003 — Modifier Abuse":     "CLM99003.edi",
+                "CLM99004 — Legitimate claim":   "CLM99004.edi",
+            }
+            qcols = st.columns(2)
+            for qi, (label, fname) in enumerate(demo_files.items()):
+                with qcols[qi % 2]:
+                    edi_path = BASE_DIR / "data" / "edi_new" / fname
+                    if st.button(label, key=f"quick_{fname}", use_container_width=True,
+                                 disabled=not edi_path.exists()):
+                        try:
+                            claim = parse_edi_file(edi_path)
+                            if claim and claim.get("procedure_codes"):
+                                precomputed  = load_precomputed_results()
+                                cid          = claim.get("claim_id","")
+                                batch_result = precomputed.get(cid)
+                                if batch_result:
+                                    bf  = batch_result.get("fraud_detected", False)
+                                    bt  = batch_result.get("fraud_type") or "None"
+                                    bc  = (batch_result.get("confidence") or "high").upper()
+                                    be  = batch_result.get("explanation","") or "All checks passed."
+                                    bdb = batch_result.get("decision_by","rule_engine")
+                                    final = {"fraud_detected":bf,"fraud_type":bt if bf else None,
+                                             "confidence":bc,"explanation":be,
+                                             "engine":bdb.replace("_"," ").title()}
+                                    decided_by_rule = "rule" in bdb.lower()
+                                    if bf and decided_by_rule:
+                                        rr = {"fraud_detected":True,"fraud_type":bt,"explanation":be}
+                                        lr = {"fraud_detected":False,"confidence":"high","explanation":"Skipped.","skipped":True}
+                                    elif bf:
+                                        rr = {"fraud_detected":False,"explanation":"All rule checks passed."}
+                                        lr = {"fraud_detected":True,"fraud_type":bt,"confidence":bc.lower(),"explanation":be}
+                                    else:
+                                        rr = {"fraud_detected":False,"explanation":"All rule checks passed."}
+                                        lr = {"fraud_detected":False,"confidence":"high","explanation":"No fraud found."}
+                                else:
+                                    with st.status("Running live analysis…", expanded=True) as qs:
+                                        st.write("Running rule-based checks…")
+                                        final, rr, lr = run_fraud_check(claim, rule_engine, llm_checker)
+                                        st.write("AI reasoning complete.")
+                                        qs.update(label="Complete", state="complete", expanded=False)
+                                st.session_state.edi_claim  = claim
+                                st.session_state.edi_result = (final, rr, lr, batch_result is not None)
+                                st.rerun()
+                        except Exception as e:
+                            st.error(f"Could not load {fname}: {e}")
+            st.markdown("<div style='margin-bottom:12px'></div>", unsafe_allow_html=True)
+
+            # File uploader — always visible
+            f = st.file_uploader("Or upload your own EDI file (.edi, .txt)", type=["edi", "txt"],
+                                 key="edi_up", label_visibility="visible")
+
             if f:
                 st.markdown(f"""
                 <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:6px;
-                            padding:10px 14px;font-size:12px;color:#166534;margin:8px 0">
-                  ✓ &nbsp;File loaded: <b>{f.name}</b>
+                            padding:10px 14px;font-size:12px;color:#166534;margin:10px 0 12px">
+                  ✓ &nbsp;File loaded: <b>{f.name}</b> — ready to analyse
                 </div>""", unsafe_allow_html=True)
-                if st.button("▶  Run Fraud Analysis", key="go_edi"):
-                    with tempfile.NamedTemporaryFile(mode='wb',suffix='.edi',delete=False) as tmp:
-                        tmp.write(f.read()); tmp_path = Path(tmp.name)
-                    try:
-                        claim = parse_edi_file(tmp_path)
-                        if not claim or not claim.get("procedure_codes"):
-                            st.error("Unable to parse EDI file. Verify X12 837P format.")
-                        else:
-                            with col2:
-                                _show_extracted_fields(claim)
-                                # Check if we have a pre-computed batch result
-                                precomputed = load_precomputed_results()
-                                cid = claim.get("claim_id","")
-                                batch_result = precomputed.get(cid)
-                                if batch_result:
-                                    _show_batch_vs_live(batch_result, claim, rule_engine, llm_checker)
-                                else:
-                                    st.markdown("""
-                                    <div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:6px;
-                                                padding:10px 14px;font-size:12px;color:#92400E;margin-bottom:12px">
-                                      ℹ️ New claim — no batch result available. Running live analysis.
-                                    </div>""", unsafe_allow_html=True)
-                                    with st.spinner("Running fraud analysis..."):
-                                        final,rr,lr = run_fraud_check(claim,rule_engine,llm_checker)
-                                    render_verdict(final,rr,lr)
-                    finally:
-                        tmp_path.unlink(missing_ok=True)
-        st.markdown("</div>", unsafe_allow_html=True)
 
-    # PDF Upload tab hidden — EDI path is primary
+            # Button always rendered when file present (outside nested ifs to stay visible)
+            run_edi = st.button(
+                "▶  Run Fraud Analysis" if f else "Upload a file to analyse",
+                key="go_edi",
+                use_container_width=True,
+                disabled=(f is None),
+            )
+
+            if run_edi and f:
+                with tempfile.NamedTemporaryFile(mode="wb", suffix=".edi", delete=False) as tmp:
+                    tmp.write(f.read())
+                    tmp_path = Path(tmp.name)
+                try:
+                    claim = parse_edi_file(tmp_path)
+                    if not claim or not claim.get("procedure_codes"):
+                        st.error("Unable to parse EDI file. Verify X12 837P format.")
+                        st.session_state.edi_claim = None
+                        st.session_state.edi_result = None
+                    else:
+                        precomputed  = load_precomputed_results()
+                        cid          = claim.get("claim_id", "")
+                        batch_result = precomputed.get(cid)
+                        if batch_result:
+                            bf  = batch_result.get("fraud_detected", False)
+                            bt  = batch_result.get("fraud_type") or "None"
+                            bc  = (batch_result.get("confidence") or "high").upper()
+                            be  = batch_result.get("explanation", "") or "All checks passed."
+                            bdb = batch_result.get("decision_by", "rule_engine")
+                            final = {"fraud_detected": bf, "fraud_type": bt if bf else None,
+                                     "confidence": bc, "explanation": be,
+                                     "engine": bdb.replace("_", " ").title()}
+                            # Reconstruct rule/llm sub-results from decision_by — stale
+                            # sub-fields in old batch JSON are unreliable
+                            decided_by_rule = "rule" in bdb.lower()
+                            if bf and decided_by_rule:
+                                rr = {"fraud_detected": True, "fraud_type": bt, "explanation": be}
+                                lr = {"fraud_detected": False, "confidence": "high",
+                                      "explanation": "Skipped — rule engine already flagged.", "skipped": True}
+                            elif bf and not decided_by_rule:
+                                rr = {"fraud_detected": False,
+                                      "explanation": "All rule-based checks passed."}
+                                lr = {"fraud_detected": True, "fraud_type": bt,
+                                      "confidence": bc.lower(), "explanation": be}
+                            else:
+                                rr = {"fraud_detected": False,
+                                      "explanation": "All rule-based checks passed. No duplicate billing, unbundling, modifier abuse, or screening code abuse detected."}
+                                lr = {"fraud_detected": False, "confidence": "high",
+                                      "explanation": "No fraud indicators found by LLM analysis."}
+                        else:
+                            with st.status("Running fraud analysis…", expanded=True) as status:
+                                st.write("Parsing EDI claim fields…")
+                                st.write("Running rule-based checks (NCCI, modifiers, bundling)…")
+                                final, rr, lr = run_fraud_check(claim, rule_engine, llm_checker)
+                                st.write("AI reasoning layer complete." if llm_checker else "AI layer skipped (no API key).")
+                                status.update(label="Analysis complete", state="complete", expanded=False)
+                        st.session_state.edi_claim  = claim
+                        st.session_state.edi_result = (final, rr, lr, batch_result is not None)
+                finally:
+                    tmp_path.unlink(missing_ok=True)
+
+        # Right column — results (always rendered so they persist across reruns)
+        with col2:
+            if st.session_state.edi_result:
+                final, rr, lr, was_batch = st.session_state.edi_result
+                claim = st.session_state.edi_claim
+                _show_extracted_fields(claim)
+                if not was_batch:
+                    st.markdown("""
+                    <div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:6px;
+                                padding:10px 14px;font-size:12px;color:#92400E;margin-bottom:12px">
+                      ℹ️ New claim — no batch result. Showing live analysis.
+                    </div>""", unsafe_allow_html=True)
+                render_verdict(final, rr, lr)
+            else:
+                st.markdown("""
+                <div style="background:white;border:1px solid #E5E7EB;border-radius:8px;
+                            padding:40px 24px;text-align:center;color:#9CA3AF;font-size:13px">
+                  <div style="font-size:28px;margin-bottom:10px">🛡️</div>
+                  Upload an EDI file and click <b>Run Fraud Analysis</b><br>to see results here.
+                </div>""", unsafe_allow_html=True)
+
+        st.markdown("</div>", unsafe_allow_html=True)
 
     # ── SAMPLE TAB ─────────────────────────────────────────────────────────────
     with tab3:
-        st.markdown("<div style='padding:24px'>", unsafe_allow_html=True)
-        col1, col2 = st.columns([1,1], gap="large")
+        st.markdown("<div style='padding:24px 24px 0'>", unsafe_allow_html=True)
+        col1, col2 = st.columns([1, 1], gap="large")
+
         with col1:
             st.markdown("""
             <div style="background:white;border:1px solid #E5E7EB;border-radius:8px;
@@ -629,30 +790,34 @@ def render_submit(rule_engine, llm_checker, all_claims):
               </div>
               <div style="font-size:12px;color:#6B7280;line-height:1.6">
                 Select a claim from the 1,300-claim evaluation dataset. Ground truth labels
-                are shown for comparison against the system's real-time output. Each claim
-                covers one of the 9 fraud types the system is designed to detect.
+                are shown for comparison against the system's real-time output.
               </div>
             </div>""", unsafe_allow_html=True)
 
             options = {}
-            for ft in ["Legitimate","Duplicate Billing","Modifier Abuse (-59)",
-                       "Code Padding","Phantom Billing","Diagnosis Mismatch",
-                       "Screening Code Abuse","Upcoding","Unbundling","Code Substitution"]:
-                c2 = next((x for x in all_claims if x.get("fraud_type")==ft), None)
+            for ft in ["Legitimate", "Duplicate Billing", "Modifier Abuse (-59)",
+                       "Code Padding", "Phantom Billing", "Diagnosis Mismatch",
+                       "Screening Code Abuse", "Upcoding", "Unbundling", "Code Substitution"]:
+                c2 = next((x for x in all_claims if x.get("fraud_type") == ft), None)
                 if c2:
                     ind = "⚠  " if c2.get("fraud_indicator") else "○  "
                     options[f"{ind}{c2['claim_id']}  —  {ft}"] = c2
 
             sel_label = st.selectbox("Select claim:", list(options.keys()),
-                                      label_visibility="visible")
+                                     label_visibility="visible", key="sample_select")
             sel = options[sel_label]
-            is_fraud_gt = sel.get("fraud_indicator",False)
 
-            # Ground truth card
+            # Reset results when selection changes
+            if st.session_state.sample_sel != sel_label:
+                st.session_state.sample_sel    = sel_label
+                st.session_state.sample_result = None
+                st.session_state.sample_claim  = None
+
+            is_fraud_gt = sel.get("fraud_indicator", False)
             gt_bg  = "#FEF2F2" if is_fraud_gt else "#F0FDF4"
             gt_bdr = "#FECACA" if is_fraud_gt else "#BBF7D0"
             gt_col = "#B91C1C" if is_fraud_gt else "#166534"
-            gt_ttl = sel.get("fraud_type","Legitimate")
+            gt_ttl = sel.get("fraud_type", "Legitimate")
             gt_exp = (sel.get("fraud_explanation") or "")[:120]
             gt_txt = f"{gt_ttl} — {gt_exp}" if is_fraud_gt else "Legitimate claim — no fraud present."
 
@@ -667,55 +832,43 @@ def render_submit(rule_engine, llm_checker, all_claims):
               <div style="font-size:12px;color:{gt_col}">{gt_txt}</div>
             </div>""", unsafe_allow_html=True)
 
-            if st.button("▶  Run Fraud Analysis", key="go_sample"):
+            if st.button("▶  Run Fraud Analysis", key="go_sample", use_container_width=True):
                 claim = normalize_raw(sel)
-                with col2:
-                    _show_claim_card(claim)
-                    with st.spinner("Running fraud analysis..."):
-                        final,rr,lr = run_fraud_check(claim,rule_engine,llm_checker)
-                    render_verdict(final,rr,lr)
+                with st.status("Running fraud analysis…", expanded=True) as status:
+                    st.write("Loading claim data…")
+                    st.write("Running rule-based checks (NCCI, modifiers, bundling)…")
+                    final, rr, lr = run_fraud_check(claim, rule_engine, llm_checker)
+                    st.write("AI reasoning complete." if llm_checker else "AI layer skipped (no API key).")
+                    status.update(label="Analysis complete", state="complete", expanded=False)
+                true_fraud = sel.get("fraud_indicator", False)
+                match = (final["fraud_detected"] == true_fraud)
+                fn    = true_fraud and not final["fraud_detected"]
+                fp    = not true_fraud and final["fraud_detected"]
+                st.session_state.sample_claim  = claim
+                st.session_state.sample_result = (final, rr, lr, match, fn, fp)
 
-                    # Match result
-                    true_fraud = sel.get("fraud_indicator",False)
-                    if final["fraud_detected"] == true_fraud:
-                        st.success("✓ Prediction matches ground truth.")
-                    elif true_fraud and not final["fraud_detected"]:
-                        st.warning("False negative — fraud not detected.")
-                    else:
-                        st.warning("False positive — legitimate claim flagged.")
+        # Right column — results persist
+        with col2:
+            if st.session_state.sample_result:
+                final, rr, lr, match, fn, fp = st.session_state.sample_result
+                _show_claim_card(st.session_state.sample_claim)
+                render_verdict(final, rr, lr)
+                if match:
+                    st.success("✓ Prediction matches ground truth.")
+                elif fn:
+                    st.warning("False negative — fraud not detected.")
+                else:
+                    st.warning("False positive — legitimate claim flagged.")
+            else:
+                st.markdown("""
+                <div style="background:white;border:1px solid #E5E7EB;border-radius:8px;
+                            padding:40px 24px;text-align:center;color:#9CA3AF;font-size:13px">
+                  <div style="font-size:28px;margin-bottom:10px">🔍</div>
+                  Select a claim and click <b>Run Fraud Analysis</b><br>to see the verdict here.
+                </div>""", unsafe_allow_html=True)
+
         st.markdown("</div>", unsafe_allow_html=True)
 
-
-def _show_batch_vs_live(batch_result, claim, rule_engine, llm_checker):
-    """Shows the pre-computed batch evaluation result for this claim."""
-
-    bf  = batch_result.get("fraud_detected", False)
-    bt  = batch_result.get("fraud_type") or "None"
-    bc  = (batch_result.get("confidence") or "high").upper()
-    be  = batch_result.get("explanation", "") or "All checks passed."
-    bdb = batch_result.get("decision_by", "")
-
-    # Render using the standard verdict display
-    final = {
-        "fraud_detected": bf,
-        "fraud_type":     bt if bf else None,
-        "confidence":     bc,
-        "explanation":    be,
-        "engine":         bdb.replace("_", " ").title(),
-    }
-
-    # Build rule/llm sub-results from batch data
-    rr = batch_result.get("rule_result", {
-        "fraud_detected": False,
-        "explanation": "Rule engine results from batch run."
-    })
-    lr = batch_result.get("llm_result", {
-        "fraud_detected": False,
-        "confidence": "high",
-        "explanation": "LLM results from batch run."
-    })
-
-    render_verdict(final, rr, lr)
 
 
 def _show_extracted_fields(claim):
@@ -837,22 +990,24 @@ def render_performance():
         ]
         rows = ""
         for i,(name,m,n,d,f1) in enumerate(perf):
-            bg = "#F9FAFB" if i%2==0 else "white"
-            fc = "#16A34A" if f1>=0.75 else "#D97706"
-            mb = "#DBEAFE" if m=="Rule" else "#EDE9FE"
-            mc2= "#1D4ED8" if m=="Rule" else "#6D28D9"
+            bg  = "#F9FAFB" if i%2==0 else "white"
+            # Bar color = method (blue=Rule, purple=LLM), score chip = green/amber
+            bar_color = "#2563EB" if m=="Rule" else "#7C3AED"
+            score_color = "#16A34A" if f1>=0.75 else "#D97706"
+            mb  = "#DBEAFE" if m=="Rule" else "#EDE9FE"
+            mc2 = "#1D4ED8" if m=="Rule" else "#6D28D9"
             rows += f"""<tr style="background:{bg}">
               <td style="padding:10px 16px;font-size:13px;color:#1B2B45;border-bottom:1px solid #F3F4F6">{name}</td>
               <td style="padding:10px 16px;border-bottom:1px solid #F3F4F6">
                 <span style="background:{mb};color:{mc2};font-size:10px;font-weight:600;padding:2px 8px;border-radius:4px">{m}</span></td>
               <td style="padding:10px 16px;text-align:right;font-family:'DM Mono',monospace;font-size:12px;color:#6B7280;border-bottom:1px solid #F3F4F6">{n}</td>
               <td style="padding:10px 16px;text-align:right;font-family:'DM Mono',monospace;font-size:12px;color:#6B7280;border-bottom:1px solid #F3F4F6">{d}</td>
-              <td style="padding:10px 20px;border-bottom:1px solid #F3F4F6;min-width:150px">
+              <td style="padding:10px 20px;border-bottom:1px solid #F3F4F6;min-width:160px">
                 <div style="display:flex;align-items:center;gap:10px">
-                  <div style="flex:1;height:4px;background:#E5E7EB;border-radius:2px;position:relative;min-width:60px">
-                    <div style="position:absolute;left:0;top:0;height:100%;border-radius:2px;width:{int(f1*100)}%;background:{fc}"></div>
+                  <div style="flex:1;height:5px;background:#E5E7EB;border-radius:3px;position:relative;min-width:70px">
+                    <div style="position:absolute;left:0;top:0;height:100%;border-radius:3px;width:{int(f1*100)}%;background:{bar_color}"></div>
                   </div>
-                  <span style="font-family:'DM Mono',monospace;font-size:12px;color:{fc};font-weight:500;min-width:36px">{f1:.3f}</span>
+                  <span style="font-family:'DM Mono',monospace;font-size:12px;color:{score_color};font-weight:600;min-width:36px">{f1:.3f}</span>
                 </div>
               </td>
             </tr>"""
@@ -934,22 +1089,22 @@ def main():
         # Stats
         st.markdown(f"""
         <div style="padding:14px 16px;border-bottom:1px solid #243650">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 16px">
             <div>
-              <div style="font-size:9px;font-weight:600;color:#4B5563;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px">Claims</div>
+              <div style="font-size:10px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Claims</div>
               <div style="font-size:22px;font-weight:300;color:white;font-family:'DM Mono',monospace;line-height:1">{total:,}</div>
             </div>
             <div>
-              <div style="font-size:9px;font-weight:600;color:#4B5563;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px">Fraud</div>
+              <div style="font-size:10px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Fraud</div>
               <div style="font-size:22px;font-weight:300;color:#F87171;font-family:'DM Mono',monospace;line-height:1">{fraud_count:,}</div>
             </div>
             <div>
-              <div style="font-size:9px;font-weight:600;color:#4B5563;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:2px">Exposure</div>
-              <div style="font-size:12px;font-weight:500;color:#F87171;font-family:'DM Mono',monospace">${fraud_exp:,.0f}</div>
+              <div style="font-size:10px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px">Exposure</div>
+              <div style="font-size:13px;font-weight:500;color:#F87171;font-family:'DM Mono',monospace">${fraud_exp:,.0f}</div>
             </div>
             <div>
-              <div style="font-size:9px;font-weight:600;color:#4B5563;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:2px">F1 Score</div>
-              <div style="font-size:12px;font-weight:500;color:#4ADE80;font-family:'DM Mono',monospace">0.763</div>
+              <div style="font-size:10px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px">F1 Score</div>
+              <div style="font-size:13px;font-weight:500;color:#4ADE80;font-family:'DM Mono',monospace">0.763</div>
             </div>
           </div>
         </div>""", unsafe_allow_html=True)
@@ -988,9 +1143,16 @@ def main():
             st.session_state.view = "performance"; st.rerun()
 
         st.markdown("""
-        <div style="padding:14px 16px;border-top:1px solid #243650;margin-top:16px">
-          <div style="font-size:10px;color:#374151;line-height:1.8">
-            Cornell University<br>Capstone Project · 2026<br>Medical Insurance Claims
+        <div style="padding:12px 16px;border-top:1px solid #243650;margin-top:auto">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:30px;height:30px;border-radius:50%;background:#2563EB;
+                        display:flex;align-items:center;justify-content:center;
+                        font-size:11px;font-weight:600;color:white;flex-shrink:0">SP</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px;font-weight:500;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Shravani Poman</div>
+              <div style="font-size:10px;color:#94A3B8;margin-top:1px">Fraud Analyst</div>
+            </div>
+            <div style="width:7px;height:7px;border-radius:50%;background:#4ADE80;flex-shrink:0"></div>
           </div>
         </div>""", unsafe_allow_html=True)
 
@@ -1011,11 +1173,46 @@ def main():
 
     # ── MAIN CONTENT ──────────────────────────────────────────────────────────
     if st.session_state.view == "table":
-        # Top bar: search + action buttons
-        search_col, btn1 = st.columns([4, 1.5])
+        # ── Metric cards row ──────────────────────────────────────────────
+        fraud_pct = round(fraud_count / total * 100) if total else 0
+        st.markdown(f"""
+        <div class="cg-metric-row">
+          <div class="cg-metric-card">
+            <div class="cg-metric-label">Total Claims</div>
+            <div class="cg-metric-value">{total:,}</div>
+            <div class="cg-metric-chip blue">Batch evaluation complete</div>
+          </div>
+          <div class="cg-metric-card">
+            <div class="cg-metric-label">Flagged</div>
+            <div class="cg-metric-value red">{fraud_count:,}</div>
+            <div class="cg-metric-chip red">▲ {fraud_pct}% of claims</div>
+          </div>
+          <div class="cg-metric-card">
+            <div class="cg-metric-label">Fraud Exposure</div>
+            <div class="cg-metric-value red" style="font-size:20px">${fraud_exp:,.0f}</div>
+            <div class="cg-metric-chip red">Total across flagged claims</div>
+          </div>
+          <div class="cg-metric-card">
+            <div class="cg-metric-label">F1 Score</div>
+            <div class="cg-metric-value teal">0.763</div>
+            <div class="cg-metric-chip green">Precision 88.8%</div>
+          </div>
+        </div>""", unsafe_allow_html=True)
+
+        # ── Toolbar: search + submit button ───────────────────────────────
+        st.markdown("""
+        <div style="background:white;border-bottom:1px solid #E5E7EB;padding:10px 24px;
+                    display:flex;align-items:center;gap:12px">
+          <svg style="position:absolute;margin-left:10px;width:15px;height:15px;color:#9CA3AF;z-index:1;pointer-events:none"
+               viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="6.5" cy="6.5" r="5" stroke="#9CA3AF" stroke-width="1.3"/>
+            <path d="M10.5 10.5L13 13" stroke="#9CA3AF" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+        </div>""", unsafe_allow_html=True)
+        search_col, btn1 = st.columns([4, 1])
         with search_col:
             search = st.text_input("search",
-                placeholder="🔍  Search by claim ID, patient, provider, or billing code...",
+                placeholder="  Search by claim ID, patient, provider, or billing code...",
                 label_visibility="collapsed", key="search_q")
         with btn1:
             if st.button("＋ Submit Claim", key="top_submit", use_container_width=True):
