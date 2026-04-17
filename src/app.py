@@ -56,35 +56,64 @@ section[data-testid="stSidebar"] > div { background:#1B2B45 !important; padding:
 [data-testid="collapsedControl"] { display:none !important; }
 #MainMenu, footer, header { visibility:hidden; }
 
-/* Sidebar nav buttons - clean left-aligned style */
-section[data-testid="stSidebar"] .stButton > button {
+/* ── ALL VISIBLE ACTION BUTTONS (default) ─────────────────────────── */
+/* Top-level rule: all main-area buttons are visible navy by default */
+section[data-testid="stMain"] .stButton > button {
+    background: #1B2B45 !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 6px !important;
+    font-family: 'DM Sans', sans-serif !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    padding: 9px 20px !important;
+    opacity: 1 !important;
+    height: auto !important;
+    min-height: 38px !important;
+    position: static !important;
+    margin-top: 0 !important;
+    z-index: auto !important;
+    cursor: pointer !important;
+}
+section[data-testid="stMain"] .stButton > button:hover {
+    background: #243650 !important;
+}
+
+/* ── RUN FRAUD ANALYSIS buttons — blue accent ─────────────────────── */
+[data-testid="stButton-go_edi"] > button,
+[data-testid="stButton-go_pdf"] > button,
+[data-testid="stButton-go_sample"] > button {
+    background: #2563EB !important;
+    color: white !important;
+    font-size: 14px !important;
+    padding: 10px 24px !important;
+    border-radius: 7px !important;
+}
+[data-testid="stButton-go_edi"] > button:hover,
+[data-testid="stButton-go_pdf"] > button:hover,
+[data-testid="stButton-go_sample"] > button:hover {
+    background: #1D4ED8 !important;
+}
+
+/* ── BACK/HOME buttons — minimal ghost style ──────────────────────── */
+[data-testid="stButton-submit_home"] > button,
+[data-testid="stButton-perf_home"] > button {
     background: transparent !important;
-    color: #9CA3AF !important;
-    text-align: left !important;
+    color: #6B7280 !important;
+    border: 1px solid #E5E7EB !important;
     font-size: 12px !important;
     font-weight: 400 !important;
-    padding: 7px 16px !important;
-    border: none !important;
-    border-radius: 4px !important;
-    justify-content: flex-start !important;
-    border-left: 2px solid transparent !important;
+    padding: 6px 14px !important;
 }
-section[data-testid="stSidebar"] .stButton > button:hover {
-    background: #243650 !important;
-    color: white !important;
+[data-testid="stButton-submit_home"] > button:hover,
+[data-testid="stButton-perf_home"] > button:hover {
+    background: #F9FAFB !important;
+    color: #374151 !important;
 }
 
-/* Submit Claim + action buttons — dark navy */
-.stButton > button {
-    background:#1B2B45 !important; color:white !important;
-    border:none !important; border-radius:6px !important;
-    font-family:'DM Sans',sans-serif !important; font-size:13px !important;
-    font-weight:500 !important; padding:8px 20px !important;
-}
-.stButton > button:hover { background:#243650 !important; }
-
-/* Row overlay buttons — sit over the HTML row, fully transparent */
-section[data-testid="stMain"] .stButton > button[kind="secondary"] {
+/* ── ROW OVERLAY BUTTONS — invisible click targets only ───────────── */
+/* Only buttons whose text starts with "CLM" (claim IDs) get hidden */
+[data-testid^="stButton-row_CLM"] > button {
     background: transparent !important;
     color: transparent !important;
     border: none !important;
@@ -95,66 +124,34 @@ section[data-testid="stMain"] .stButton > button[kind="secondary"] {
     width: 100% !important;
     position: relative !important;
     z-index: 10 !important;
-    cursor: pointer !important;
-    font-size: 0 !important;
     opacity: 0.01 !important;
+    font-size: 0 !important;
+    padding: 0 !important;
 }
 
-
-
-/* Row overlay buttons — identified by starting with "row__" in their text */
-/* Make them transparent overlays that sit over the HTML row */
-section[data-testid="stMain"] button[data-testid="baseButton-secondary"]:has(> div > p:empty) {
-    background: transparent !important; color: transparent !important;
-    border: none !important; box-shadow: none !important;
-    margin-top: -48px !important; height: 48px !important;
-    position: relative !important; z-index: 10 !important;
-    opacity: 0.001 !important; font-size: 0 !important;
-}
-
-/* Top submit button — must be fully visible, override transparent overlay rule */
-[data-testid="stButton-top_submit"] > button {
-    background: #1B2B45 !important;
-    color: white !important;
-    border: none !important;
-    opacity: 1 !important;
-    font-size: 13px !important;
-    font-weight: 600 !important;
-    padding: 8px 16px !important;
-    border-radius: 6px !important;
-    margin-top: 0 !important;
-    height: auto !important;
-    position: static !important;
-    z-index: auto !important;
-}
-
-/* EDI run button — also must be visible */
-[data-testid="stButton-go_edi"] > button,
-[data-testid="stButton-go_pdf"] > button {
-    background: #2563EB !important;
-    color: white !important;
-    border: none !important;
-    opacity: 1 !important;
-    font-size: 13px !important;
-    font-weight: 600 !important;
-    padding: 8px 20px !important;
-    border-radius: 6px !important;
-    margin-top: 0 !important;
-    height: auto !important;
-    position: static !important;
-    z-index: auto !important;
-}
-
-/* Back/home buttons — override to look minimal */
-[data-testid="stButton-submit_home"] > button,
-[data-testid="stButton-perf_home"] > button {
+/* ── SIDEBAR BUTTONS ──────────────────────────────────────────────── */
+section[data-testid="stSidebar"] .stButton > button {
     background: transparent !important;
-    color: #6B7280 !important;
-    border: 1px solid #E5E7EB !important;
+    color: #9CA3AF !important;
+    text-align: left !important;
     font-size: 12px !important;
-    padding: 6px 14px !important;
+    font-weight: 400 !important;
+    padding: 7px 16px !important;
+    border: none !important;
+    border-radius: 4px !important;
+    justify-content: flex-start !important;
+    opacity: 1 !important;
+    height: auto !important;
+    min-height: unset !important;
+    margin-top: 0 !important;
+    position: static !important;
+}
+section[data-testid="stSidebar"] .stButton > button:hover {
+    background: #243650 !important;
+    color: white !important;
 }
 
+/* ── TABS ─────────────────────────────────────────────────────────── */
 .stTabs [data-baseweb="tab-list"] { background:white; border-bottom:1px solid #E5E7EB; padding:0 24px; gap:0; }
 .stTabs [data-baseweb="tab"] {
     font-family:'DM Sans',sans-serif !important; font-size:13px !important;
@@ -165,6 +162,7 @@ section[data-testid="stMain"] button[data-testid="baseButton-secondary"]:has(> d
 .stTabs [aria-selected="true"] { color:#1B2B45 !important; border-bottom-color:#1B2B45 !important; }
 .stTabs [data-baseweb="tab-panel"] { padding:0 !important; }
 
+/* ── FORM ELEMENTS ────────────────────────────────────────────────── */
 .stTextInput input {
     border:1px solid #E5E7EB !important; border-radius:6px !important;
     font-size:13px !important; background:white !important; padding:9px 12px !important;
@@ -172,17 +170,6 @@ section[data-testid="stMain"] button[data-testid="baseButton-secondary"]:has(> d
 div[data-testid="stSelectbox"] > div > div { border-color:#E5E7EB !important; border-radius:6px !important; font-size:13px !important; }
 [data-testid="stExpander"] { border:1px solid #E5E7EB !important; border-radius:8px !important; background:white !important; }
 div[data-testid="stFileUploader"] > div { border:1.5px dashed #D1D5DB !important; border-radius:8px !important; background:white !important; }
-
-/* Back/home button — targeted by key name */
-
-
-
-/* Modal overlay */
-.modal-overlay {
-    position:fixed; top:0; left:0; right:0; bottom:0;
-    background:rgba(0,0,0,0.5); z-index:9999;
-    display:flex; align-items:center; justify-content:center;
-}
 </style>
 """, unsafe_allow_html=True)
 
@@ -538,7 +525,7 @@ def render_claims_table(all_claims, search_q, fraud_filter, rule_engine, llm_che
         </div>""", unsafe_allow_html=True)
 
         # Functional button — negative margin overlays the row above, transparent
-        if st.button(f"{cid}", key=f"row_{cid}_{i}", use_container_width=True):
+        if st.button(f"{cid}", key=f"row_CLM_{cid}_{i}", use_container_width=True):
             st.session_state.selected_claim = c
             st.session_state.show_modal = True
             st.rerun()
@@ -598,7 +585,7 @@ def render_submit(rule_engine, llm_checker, all_claims):
                             padding:10px 14px;font-size:12px;color:#166534;margin:8px 0">
                   ✓ &nbsp;File loaded: <b>{f.name}</b>
                 </div>""", unsafe_allow_html=True)
-                if st.button("Run Fraud Analysis →", key="go_edi"):
+                if st.button("▶  Run Fraud Analysis", key="go_edi"):
                     with tempfile.NamedTemporaryFile(mode='wb',suffix='.edi',delete=False) as tmp:
                         tmp.write(f.read()); tmp_path = Path(tmp.name)
                     try:
@@ -680,7 +667,7 @@ def render_submit(rule_engine, llm_checker, all_claims):
               <div style="font-size:12px;color:{gt_col}">{gt_txt}</div>
             </div>""", unsafe_allow_html=True)
 
-            if st.button("Run Fraud Analysis →", key="go_sample"):
+            if st.button("▶  Run Fraud Analysis", key="go_sample"):
                 claim = normalize_raw(sel)
                 with col2:
                     _show_claim_card(claim)
