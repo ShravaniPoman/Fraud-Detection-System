@@ -39,6 +39,7 @@ except ImportError:
 
 CLAIMS_JSON = BASE_DIR / "data" / "raw_claims" / "claims.json"
 NCCI_PATH   = BASE_DIR / "data" / "ncci_edits.xlsx"
+NCCI_CSV    = BASE_DIR / "data" / "ncci_pairs.csv"
 
 st.set_page_config(page_title="ClaimGuard", page_icon="🛡️",
                    layout="wide", initial_sidebar_state="expanded")
