@@ -382,13 +382,22 @@ def render_claim_modal(claim_data, rule_engine, llm_checker):
     badge_bg    = "#FEF2F2" if is_fraud else "#F0FDF4"
 
     st.markdown(f"""
-    <div style="background:#1B2B45;padding:16px 24px;border-radius:8px 8px 0 0;
-                display:flex;align-items:center;justify-content:space-between">
-      <div>
-        <span style="font-size:16px;font-weight:600;color:white">{cid}</span>
-        <span style="font-size:13px;color:#9CA3AF;margin-left:12px">— {ft}</span>
+    <div style="background:#1B2B45;padding:14px 24px;border-radius:8px 8px 0 0;
+                display:flex;align-items:center;justify-content:space-between;margin-bottom:0">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div>
+          <div style="font-size:15px;font-weight:600;color:white;line-height:1">{cid}</div>
+          <div style="font-size:12px;color:#94A3B8;margin-top:3px">{ft}</div>
+        </div>
       </div>
+      <span style="background:{'#FEF2F2' if is_fraud else '#F0FDF4'};
+                   color:{'#DC2626' if is_fraud else '#16A34A'};
+                   font-size:10px;font-weight:700;letter-spacing:0.08em;
+                   text-transform:uppercase;padding:3px 10px;border-radius:4px">
+        {'Fraud' if is_fraud else 'Legitimate'}
+      </span>
     </div>
+    <div style="height:20px"></div>
     """, unsafe_allow_html=True)
 
     # Two-column claim details
@@ -610,23 +619,24 @@ def render_submit(rule_engine, llm_checker, all_claims):
             st.session_state[k] = v
 
     # Top bar
-    col_back, col_title = st.columns([1, 8])
+    st.markdown("""
+    <div style="background:white;border-bottom:1px solid #E5E7EB;
+                padding:12px 24px;display:flex;align-items:center;gap:16px">
+      <div>
+        <div style="font-size:14px;font-weight:600;color:#1B2B45;line-height:1">Submit Claim for Analysis</div>
+        <div style="font-size:11px;color:#9CA3AF;margin-top:3px">Upload an EDI 837P file or select a sample claim</div>
+      </div>
+    </div>""", unsafe_allow_html=True)
+    col_back, _ = st.columns([1, 8])
     with col_back:
         if st.button("← Home", key="submit_home"):
             st.session_state.view = "table"; st.rerun()
-    with col_title:
-        st.markdown("""
-        <div style="padding:8px 0">
-          <span style="font-size:14px;font-weight:600;color:#1B2B45">Submit Claim for Analysis</span>
-        </div>""", unsafe_allow_html=True)
-    st.markdown('<div style="border-bottom:1px solid #E5E7EB;margin:0 0 4px 0"></div>',
-                unsafe_allow_html=True)
 
     tab1, tab3 = st.tabs(["  EDI 837P Upload  ", "  Sample from Dataset  "])
 
     # ── EDI TAB ────────────────────────────────────────────────────────────────
     with tab1:
-        st.markdown("<div style='padding:24px 24px 0'>", unsafe_allow_html=True)
+        st.markdown("<div style='padding:28px 32px 0'>", unsafe_allow_html=True)
         col1, col2 = st.columns([1, 1], gap="large")
 
         with col1:
@@ -664,9 +674,9 @@ def render_submit(rule_engine, llm_checker, all_claims):
                   ✓ &nbsp;File loaded: <b>{f.name}</b> — ready to analyse
                 </div>""", unsafe_allow_html=True)
 
-            # Button always rendered when file present (outside nested ifs to stay visible)
+            # Button always rendered — blue when active, muted when disabled
             run_edi = st.button(
-                "▶  Run Fraud Analysis" if f else "Upload a file to analyse",
+                "▶  Run Fraud Analysis" if f else "Select a file above to continue",
                 key="go_edi",
                 use_container_width=True,
                 disabled=(f is None),
@@ -749,7 +759,7 @@ def render_submit(rule_engine, llm_checker, all_claims):
 
     # ── SAMPLE TAB ─────────────────────────────────────────────────────────────
     with tab3:
-        st.markdown("<div style='padding:24px 24px 0'>", unsafe_allow_html=True)
+        st.markdown("<div style='padding:28px 32px 0'>", unsafe_allow_html=True)
         col1, col2 = st.columns([1, 1], gap="large")
 
         with col1:
@@ -909,17 +919,18 @@ def _render_detail_table(rows):
 
 # ── Performance view ──────────────────────────────────────────────────────────
 def render_performance():
-    col_back, col_title = st.columns([1, 8])
+    st.markdown("""
+    <div style="background:white;border-bottom:1px solid #E5E7EB;
+                padding:12px 24px;display:flex;align-items:center;gap:16px">
+      <div>
+        <div style="font-size:14px;font-weight:600;color:#1B2B45;line-height:1">System Performance</div>
+        <div style="font-size:11px;color:#9CA3AF;margin-top:3px">F1, precision, recall and per-fraud-type breakdown</div>
+      </div>
+    </div>""", unsafe_allow_html=True)
+    col_back, _ = st.columns([1, 8])
     with col_back:
         if st.button("← Home", key="perf_home"):
             st.session_state.view = "table"; st.rerun()
-    with col_title:
-        st.markdown("""
-        <div style="padding:8px 0">
-          <span style="font-size:14px;font-weight:600;color:#1B2B45">System Performance</span>
-        </div>""", unsafe_allow_html=True)
-    st.markdown('<div style="border-bottom:1px solid #E5E7EB;margin:0 0 4px 0"></div>',
-                unsafe_allow_html=True)
     st.markdown("<div style='padding:24px'>", unsafe_allow_html=True)
 
     # Metric cards
@@ -1042,48 +1053,29 @@ def main():
 
     # ── SIDEBAR ───────────────────────────────────────────────────────────────
     with st.sidebar:
-        # Brand
-        st.markdown(f"""
-        <div style="padding:18px 16px 16px;border-bottom:1px solid #243650">
-          <div style="display:flex;align-items:center;gap:10px">
-            <div style="width:32px;height:32px;background:#2563EB;border-radius:7px;
-                        display:flex;align-items:center;justify-content:center;
-                        font-size:12px;font-weight:700;color:white;font-family:'DM Mono',monospace;
-                        flex-shrink:0">CG</div>
-            <div>
-              <div style="font-size:14px;font-weight:600;color:white">ClaimGuard</div>
-              <div style="font-size:10px;color:#4B5563;letter-spacing:0.06em;text-transform:uppercase">Fraud Detection</div>
-            </div>
-          </div>
-        </div>""", unsafe_allow_html=True)
-
-        # Stats
-        st.markdown(f"""
-        <div style="padding:14px 16px;border-bottom:1px solid #243650">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 16px">
-            <div>
-              <div style="font-size:10px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Claims</div>
-              <div style="font-size:22px;font-weight:300;color:white;font-family:'DM Mono',monospace;line-height:1">{total:,}</div>
-            </div>
-            <div>
-              <div style="font-size:10px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Fraud</div>
-              <div style="font-size:22px;font-weight:300;color:#F87171;font-family:'DM Mono',monospace;line-height:1">{fraud_count:,}</div>
-            </div>
-            <div>
-              <div style="font-size:10px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px">Exposure</div>
-              <div style="font-size:13px;font-weight:500;color:#F87171;font-family:'DM Mono',monospace">${fraud_exp:,.0f}</div>
-            </div>
-            <div>
-              <div style="font-size:10px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px">F1 Score</div>
-              <div style="font-size:13px;font-weight:500;color:#4ADE80;font-family:'DM Mono',monospace">0.763</div>
-            </div>
-          </div>
-        </div>""", unsafe_allow_html=True)
-
-        # Filter label
+        # Brand — shield SVG logo
         st.markdown("""
-        <div style="padding:14px 16px 6px">
-          <div style="font-size:10px;font-weight:600;color:#94A3B8;letter-spacing:0.1em;text-transform:uppercase">
+        <div style="padding:18px 16px 14px;border-bottom:1px solid #1E3A5F">
+          <div style="display:flex;align-items:center;gap:11px">
+            <div style="width:36px;height:36px;flex-shrink:0">
+              <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:36px;height:36px">
+                <rect width="36" height="36" rx="8" fill="#2563EB"/>
+                <path d="M18 6L8 10.5V18C8 23.25 12.4 28.2 18 29.5C23.6 28.2 28 23.25 28 18V10.5L18 6Z" fill="white" fill-opacity="0.15"/>
+                <path d="M18 7.5L9.5 11.5V18C9.5 22.75 13.4 27.3 18 28.5C22.6 27.3 26.5 22.75 26.5 18V11.5L18 7.5Z" fill="white" fill-opacity="0.9"/>
+                <path d="M15 18.5L17 20.5L22 15.5" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div>
+              <div style="font-size:15px;font-weight:600;color:white;letter-spacing:-0.01em">ClaimGuard</div>
+              <div style="font-size:10px;color:#64748B;letter-spacing:0.05em;text-transform:uppercase;margin-top:1px">Fraud Detection</div>
+            </div>
+          </div>
+        </div>""", unsafe_allow_html=True)
+
+        # Filter label — right under logo, no gap
+        st.markdown("""
+        <div style="padding:6px 16px 4px;border-bottom:1px solid #1E3A5F;margin-bottom:4px">
+          <div style="font-size:9px;font-weight:700;color:#475569;letter-spacing:0.12em;text-transform:uppercase">
             Fraud Categories
           </div>
         </div>""", unsafe_allow_html=True)
@@ -1113,7 +1105,7 @@ def main():
                 st.rerun()
 
         # Actions separator
-        st.markdown("""<div style="border-top:1px solid #243650;margin:8px 16px 6px"></div>""",
+        st.markdown("""<div style="border-top:1px solid #1E3A5F;margin:6px 12px 4px"></div>""",
                     unsafe_allow_html=True)
 
         if st.button("＋  Submit New Claim", key="nav_submit", use_container_width=True):
@@ -1121,19 +1113,7 @@ def main():
         if st.button("◎  System Performance", key="nav_perf", use_container_width=True):
             st.session_state.view = "performance"; st.rerun()
 
-        st.markdown("""
-        <div style="padding:12px 16px;border-top:1px solid #243650;margin-top:auto">
-          <div style="display:flex;align-items:center;gap:10px">
-            <div style="width:30px;height:30px;border-radius:50%;background:#2563EB;
-                        display:flex;align-items:center;justify-content:center;
-                        font-size:11px;font-weight:600;color:white;flex-shrink:0">SP</div>
-            <div style="flex:1;min-width:0">
-              <div style="font-size:12px;font-weight:500;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Shravani Poman</div>
-              <div style="font-size:10px;color:#94A3B8;margin-top:1px">Fraud Analyst</div>
-            </div>
-            <div style="width:7px;height:7px;border-radius:50%;background:#4ADE80;flex-shrink:0"></div>
-          </div>
-        </div>""", unsafe_allow_html=True)
+
 
     # ── MODAL (claim detail popup) ─────────────────────────────────────────────
     if st.session_state.show_modal and st.session_state.selected_claim:
@@ -1207,12 +1187,15 @@ def main():
         </div>""", unsafe_allow_html=True)
 
         with st.container():
-            toolbar_l, toolbar_search, toolbar_btn = st.columns([0.12, 3.5, 0.9])
-            with toolbar_l:
-                st.markdown(
-                    '<p style="font-size:13px;font-weight:500;color:#374151;'
-                    'margin:0;padding:9px 0;white-space:nowrap;">Search claims</p>',
-                    unsafe_allow_html=True)
+            toolbar_icon, toolbar_search, toolbar_btn = st.columns([0.06, 3.5, 0.9])
+            with toolbar_icon:
+                st.markdown("""
+                <div style="display:flex;align-items:center;justify-content:center;height:38px;padding-top:2px">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="7" cy="7" r="5.5" stroke="#9CA3AF" stroke-width="1.4"/>
+                    <path d="M11 11L14 14" stroke="#9CA3AF" stroke-width="1.4" stroke-linecap="round"/>
+                  </svg>
+                </div>""", unsafe_allow_html=True)
             with toolbar_search:
                 search = st.text_input(
                     "search",
