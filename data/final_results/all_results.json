@@ -25850,10 +25850,10 @@
   {
     "claim_id": "CLM02077",
     "fraud_detected": true,
-    "fraud_type": "Code Padding",
+    "fraud_type": "Modifier Abuse (-59)",
     "confidence": "high",
-    "explanation": "CPT 93000 (complete ECG, which includes tracing, interpretation, and report) and CPT 93010 (ECG interpretation/report only) are component codes where 93010 is a subset of 93000, making it redundant and inappropriate to bill both together \u2014 this is a classic unbundling/code padding scheme, and the -59 modifiers appear to be used improperly to bypass bundling edits; additionally, the total billed of $156.91 is approximately 683% of the combined Medicare rate of $22.97, well above the 500% suspicious threshold.",
-    "decision_by": "llm_claude",
+    "explanation": "Modifier -59 applied to NCCI-bundled code pair CPT 93000 and CPT 93010. These codes cannot be billed separately \u2014 modifier -59 is being used to bypass NCCI bundling rules.",
+    "decision_by": "rule_engine",
     "true_fraud": true,
     "true_fraud_type": "Modifier Abuse (-59)",
     "prediction_correct": true,
