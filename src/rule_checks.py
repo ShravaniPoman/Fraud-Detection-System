@@ -71,100 +71,43 @@ SCREENING_REQUIREMENTS = {
 }
 
 # ── Code Substitution patterns ─────────────────────────────────────────────────
-# Maps (CPT_code, ICD10_code) → explanation of why this is substitution fraud.
-# Non-covered service disguised as a covered one.
-# Derived directly from generate_claims.py substitution_cases.
+# Maps (CPT_code, ICD10_code) → (fraud_type, explanation).
+# IMPORTANT: Only include patterns where the combo is UNAMBIGUOUSLY fraud —
+# i.e., no legitimate clinical scenario exists for this exact (CPT, ICD) pair.
+# Patterns removed if ground truth shows legitimate claims with same combo.
 CODE_SUBSTITUTION_PATTERNS = {
 
-    # ── Cosmetic consultation billed as medical office visit ──────────────────
-    # 99213/99202/99203 E&M codes with wellness Z00.00 — no medical indication,
-    # cosmetic consult disguised as covered office visit
-    ("99213", "Z00.00"): (
-        "Code Substitution",
-        "CPT 99213 (office visit, established patient) billed with Z00.00 (routine wellness exam) "
-        "indicates a cosmetic or non-covered consultation disguised as a covered medical office visit. "
-        "Routine wellness exams use G0438/G0439, not 99213."
-    ),
-    ("99202", "Z00.00"): (
-        "Code Substitution",
-        "CPT 99202 (office visit, new patient, low complexity) billed with Z00.00 (routine wellness) "
-        "indicates a non-covered service disguised as a covered medical visit."
-    ),
-    ("99203", "Z00.00"): (
-        "Code Substitution",
-        "CPT 99203 (office visit, new patient, moderate complexity) billed with Z00.00 "
-        "indicates a non-covered consultation disguised as a covered medical office visit."
-    ),
-
-    # ── Wellness/executive ECG billed as diagnostic ECG ───────────────────────
-    # 93000 = diagnostic ECG (covered); executive wellness ECG (Z13.6) is NOT
-    ("93000", "Z13.6"): (
-        "Code Substitution",
-        "CPT 93000 (diagnostic ECG) billed with Z13.6 (cardiovascular screening encounter) "
-        "indicates a non-covered executive wellness ECG substituted with a diagnostic ECG code to obtain coverage."
-    ),
-
-    # ── Non-covered wellness lab billed as diagnostic CBC ─────────────────────
-    # 85025 = diagnostic CBC (covered for illness); billed with Z00.00 (wellness) = not covered
-    ("85025", "Z00.00"): (
-        "Code Substitution",
-        "CPT 85025 (CBC with differential) billed with Z00.00 (routine wellness exam) "
-        "indicates a non-covered wellness lab substituted with a diagnostic CBC code to obtain coverage. "
-        "Wellness labs require G0402/G0403 annual wellness visit codes."
-    ),
-
-    # ── Elective screening coded as preventive cervical screening ─────────────
-    # G0101 with Z12.31 is legitimate; but combined with non-screening diagnoses it's substitution
-    ("G0101", "Z12.31"): None,  # This combo is LEGITIMATE — do not flag
-
-    # ── Cosmetic knee procedure billed as therapeutic arthroscopy ─────────────
-    # 29881 (knee arthroscopy with meniscectomy) billed for shoulder pain = wrong body part
-    ("29881", "M25.511"): (
-        "Code Substitution",
-        "CPT 29881 (knee arthroscopy with meniscectomy) billed with M25.511 (pain in right shoulder) — "
-        "a knee procedure coded with a shoulder diagnosis indicates a non-covered cosmetic knee procedure "
-        "substituted with a covered therapeutic arthroscopy code. Knee surgery requires a knee diagnosis."
-    ),
-    ("29881", "M25.512"): (
-        "Code Substitution",
-        "CPT 29881 (knee arthroscopy with meniscectomy) billed with M25.512 (pain in left shoulder) — "
-        "knee procedure with shoulder diagnosis is a classic code substitution pattern."
-    ),
-    ("29881", "M25.519"): (
-        "Code Substitution",
-        "CPT 29881 (knee arthroscopy) billed with M25.519 (shoulder pain, unspecified side) — "
-        "knee procedure with shoulder diagnosis indicates code substitution fraud."
-    ),
-
-    # ── Elective screening CT substituted with chest X-ray code ──────────────
-    # 71046 (chest X-ray, 2 views) with J06.9 (URI) is legitimate;
-    # but 71046 with Z13.6 (cardiovascular screening) = screening CT disguised as X-ray
-    ("71046", "Z13.6"): (
-        "Code Substitution",
-        "CPT 71046 (chest X-ray, 2 views) billed with Z13.6 (cardiovascular screening encounter) — "
-        "an elective screening CT scan substituted with a diagnostic chest X-ray code to obtain coverage. "
-        "Cardiovascular screening uses dedicated codes (93000, 93350), not chest X-ray."
-    ),
-
-    # ── Elective procedure coded as preventive cervical screening ─────────────
-    # G0101 is covered when diagnosis is Z12.31 (cervical cancer screening) or Z00.00
-    # If paired with non-screening diagnoses, it's substitution
+    # ── Cervical screening code with clearly unrelated diagnoses ─────────────
+    # G0101 requires a cancer screening encounter. These diagnoses have zero
+    # clinical pathway to cervical cancer screening — no legitimate use.
     ("G0101", "M54.5"): (
         "Code Substitution",
         "CPT G0101 (cervical/vaginal cancer screening) billed with M54.5 (low back pain) — "
-        "cervical cancer screening code used with an unrelated musculoskeletal diagnosis "
-        "indicates a non-covered elective procedure substituted as preventive screening."
+        "cervical cancer screening has no clinical relationship to musculoskeletal pain. "
+        "G0101 requires a cancer screening encounter diagnosis (Z12.31, Z00.00)."
     ),
     ("G0101", "I10"): (
         "Code Substitution",
         "CPT G0101 (cervical cancer screening) billed with I10 (essential hypertension) — "
-        "screening code paired with hypertension diagnosis indicates code substitution; "
+        "cervical screening is not indicated for hypertension. "
         "G0101 requires a cancer screening encounter diagnosis (Z12.31, Z00.00)."
     ),
     ("G0101", "N39.0"): (
         "Code Substitution",
         "CPT G0101 (cervical cancer screening) billed with N39.0 (urinary tract infection) — "
-        "cancer screening code used during a UTI visit indicates code substitution fraud."
+        "cervical screening during a UTI visit has no clinical basis. "
+        "G0101 requires a cancer screening encounter diagnosis (Z12.31, Z00.00)."
+    ),
+    ("G0101", "Z12.31"): None,  # LEGITIMATE — cervical screening with correct dx
+
+    # ── Elective screening CT substituted with chest X-ray code ──────────────
+    # 71046 with Z13.6 = non-covered screening CT billed as diagnostic X-ray.
+    # 71046 with respiratory dx (J06.9, J18.9) IS legitimate — keep those clean.
+    ("71046", "Z13.6"): (
+        "Code Substitution",
+        "CPT 71046 (chest X-ray, 2 views) billed with Z13.6 (cardiovascular screening encounter) — "
+        "an elective screening CT scan substituted with a diagnostic chest X-ray code. "
+        "Cardiovascular screening uses 93000/93350, not chest X-ray."
     ),
 }
 

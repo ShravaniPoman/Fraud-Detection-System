@@ -149,18 +149,71 @@ def build_fraud_prompt(claim, fee_schedule):
             "indication (chest pain, known CAD, heart failure). It is NEVER performed for "
             "respiratory infections, wellness, UTI, or non-cardiac diagnoses."
         )
-    if any(icd in icd10_codes for icd in RESPIRATORY_INFECTIONS) and \
-       any(c in cpt_codes for c in ["93458","93454","0026U","0048U","0006M","0007M","0019M"]):
+    if any(icd in icd10_codes for icd in RESPIRATORY_INFECTIONS) and        any(c in cpt_codes for c in ["93458","93454","0026U","0048U","0006M","0007M","0019M",
+                                     "0036U","0037U","0038U","0048U","0062M","0063M"]):
         critical.append(
             "CRITICAL: J06.9/J00/J20.9 are respiratory infections (cold, bronchitis). "
-            "Invasive cardiac or high-cost genomic procedures billed with these diagnoses "
-            "are ALWAYS phantom billing or diagnosis mismatch — flag with HIGH confidence."
+            "Invasive cardiac catheterization or high-cost oncology/genomic procedures "
+            "billed with respiratory infection diagnoses are ALWAYS phantom billing — "
+            "these procedures are physically impossible in this clinical context. "
+            "fraud_type = Phantom Billing, confidence = high."
         )
-    if any(icd in icd10_codes for icd in WELLNESS_CODES) and total_charge > 800 and \
-       not any(c in cpt_codes for c in ["99205","99204","99203","G0438","G0439"]):
+    # Phantom billing: high-cost genomics/transplant codes with non-oncology diagnoses
+    GENOMIC_TRANSPLANT_CODES = {
+        "0026U","0048U","0006M","0007M","0019M","0062M","0063M",
+        "0036U","0037U","0038U","0055U","0056U",  # transplant genomics
+        "0016U","0017U","0023U",                   # oncology molecular
+    }
+    NON_ONCOLOGY_WITH_GENOMICS = (
+        any(c in cpt_codes for c in GENOMIC_TRANSPLANT_CODES) and
+        not any(icd in icd10_codes for icd in CANCER_DX) and
+        not any(icd.startswith("C") or icd.startswith("D0") or icd.startswith("Z12")
+                for icd in icd10_codes)
+    )
+    if NON_ONCOLOGY_WITH_GENOMICS:
         critical.append(
-            "CRITICAL: Z00.00 is routine wellness exam. Specialty procedures over $800 billed "
-            "with ONLY Z00.00 and no legitimate specialty indication are phantom billing."
+            "CRITICAL: Advanced oncology/genomic/transplant codes (0026U/0048U/0036U/0055U etc.) "
+            "REQUIRE an active cancer diagnosis (C-codes) or transplant/high-risk indication. "
+            "Billing these with non-oncology diagnoses (diabetes Z13.1, back pain M54.5, "
+            "cold J06.9, wellness Z00.00, musculoskeletal) is ALWAYS phantom billing. "
+            "fraud_type = Phantom Billing, confidence = high."
+        )
+
+    # Phantom billing: major surgery with clearly impossible diagnosis
+    MAJOR_SURGICAL = {"27447","27446","27445","27487",  # knee arthroplasty
+                      "23472","23470",                   # shoulder arthroplasty
+                      "22612","22630",}                  # spinal fusion
+    MAJOR_SURGICAL_SAFE_ICD = {"M25.511","M25.512","M25.519",
+                                "M17.11","M17.12","M17.31",
+                                "M25.361","M25.362","M25.369"}
+    if any(c in cpt_codes for c in MAJOR_SURGICAL) and        any(icd in icd10_codes for icd in RESPIRATORY_INFECTIONS) and        not any(icd in icd10_codes for icd in MAJOR_SURGICAL_SAFE_ICD):
+        critical.append(
+            "CRITICAL: Major orthopedic surgery (knee/shoulder replacement, spinal fusion) "
+            "billed with a respiratory infection diagnosis (cold, bronchitis, URI) is "
+            "physically impossible — no surgeon performs elective joint replacement during "
+            "an acute infection. fraud_type = Phantom Billing, confidence = high."
+        )
+
+    # Phantom billing: CT/imaging for clearly unrelated diagnosis
+    CHEST_IMAGING = {"71250","71270","71271"}
+    DIABETES_SCREEN = {"Z13.1","Z13.220"}
+    if any(c in cpt_codes for c in CHEST_IMAGING) and        any(icd in icd10_codes for icd in DIABETES_SCREEN):
+        critical.append(
+            "CRITICAL: Chest CT scan (71250/71270) billed with a diabetes screening diagnosis "
+            "(Z13.1) has no clinical basis — chest imaging is not part of diabetes screening. "
+            "fraud_type = Phantom Billing, confidence = high."
+        )
+    # Z00.00 phantom billing — ONLY fire when procedure is clinically impossible
+    # at a wellness visit (invasive cardiac, high-cost genomics). Raise threshold
+    # to $2,000 to avoid flagging legitimate specialist visits during wellness.
+    IMPOSSIBLE_AT_WELLNESS = {"93458","93454","93455","93456","93460","93461",
+                               "0026U","0048U","0006M","0007M","0019M","0062M","0063M",
+                               "0036U","0037U","0038U"}
+    if any(icd in icd10_codes for icd in WELLNESS_CODES) and        any(c in cpt_codes for c in IMPOSSIBLE_AT_WELLNESS):
+        critical.append(
+            "CRITICAL: Z00.00 is routine wellness exam. Invasive cardiac procedures "
+            "(93458/93454) and advanced oncology genomic assays (0026U/0048U/0006M) "
+            "are NEVER performed during a routine wellness visit — this is phantom billing."
         )
 
     critical_block = "\n".join(f"- {c}" for c in critical) if critical else ""
@@ -219,25 +272,62 @@ Impossible means: requires specialized hospital equipment but diagnosis is
 outpatient, OR procedure treats an organ/system with no relation to any diagnosis.
 → If yes: Phantom Billing, HIGH confidence.
 
-STEP 3 — UPCODING CHECK (E&M CODES ONLY)
-Is the PRIMARY code an E&M visit code (99202–99215)?
-→ If NO: skip to Step 4. Upcoding NEVER applies to imaging, cardiac, lab, surgical.
-→ If YES: Does the diagnosis justify the SPECIFIC complexity level billed?
-  (99215 = high complexity, 99213 = moderate, 99212 = low)
-  AND does billed price exceed 400% of Medicare rate?
-  → If both true: Upcoding, MEDIUM confidence.
+STEP 3 — UPCODING CHECK
+Upcoding = billing a more expensive/complex procedure than the diagnosis warrants.
+There are TWO types in this dataset:
+
+TYPE A — E&M complexity upcoding:
+  Is the code an E&M visit (99202–99215)?
+  Does the diagnosis justify that SPECIFIC complexity level?
+  - 99215 (high complexity) for a cold/simple visit → Upcoding
+  - 99205 (new patient, highest) for routine screening → Upcoding
+  - 99214/99215 for Z13.6 (cardiovascular screening) → Upcoding
+  Flag if: E&M code complexity exceeds what diagnosis warrants. Confidence = medium.
+
+TYPE B — Procedure substitution upcoding (MORE COMMON in this dataset):
+  Is a high-resource procedure billed when a simpler one was clinically warranted?
+  Known patterns — flag as Upcoding:
+  - 71250 (CT chest, ~$800+) billed when diagnosis only warrants 71046 (X-ray, ~$200)
+    → CT billed for simple diagnoses like I10 (hypertension) or M54.5 (back pain)
+    → Only an X-ray is clinically warranted; CT is excessive
+  - 93306 (complete echo, ~$1,000+) billed when only 93000 (ECG, ~$50) was warranted
+    → Echo billed for Z13.6 (cardiovascular screening) or I10 (hypertension alone)
+    → Simple ECG is standard first-line; echo requires known cardiac abnormality
+  - 0006M (oncology gene classifier, ~$1,000+) billed for Z13.6 (cardiovascular screening)
+    → A lipid panel (80061) or basic labs are warranted; genomic classifier is excessive
+  Flag if: procedure resource level far exceeds what diagnosis clinically warrants.
+  Confidence = medium.
+
+→ If neither type applies: skip to Step 4.
 
 STEP 4 — DIAGNOSIS MISMATCH CHECK
-Ask: "Is there ANY valid clinical pathway from this diagnosis to this procedure?"
-Consider: referral chains, comorbidities, screening for at-risk patients.
-Examples of LEGITIMATE unusual combos:
-  - 71046 (chest X-ray) + J06.9 (URI) → LEGITIMATE (rule out pneumonia)
-  - 93000 (ECG) + I10 (hypertension) → LEGITIMATE (cardiac monitoring)
-  - 29881 (knee arthroscopy) + M25.511 (shoulder pain) → MISMATCH (wrong joint)
-  - 70553 (brain MRI) + N39.0 (UTI) → MISMATCH (no neurological indication)
-Only flag if you are CERTAIN there is NO valid clinical relationship.
-→ If certain mismatch: Diagnosis Mismatch, HIGH confidence.
-→ If uncertain: fraud_detected=false.
+Ask TWO questions before flagging:
+  Q1: "Is there ANY valid clinical pathway from diagnosis to procedure?"
+      Consider: complications, comorbidities, referral chains, screening.
+  Q2: "Would a reasonable physician order this procedure for this diagnosis?"
+      If yes to either → legitimate, fraud_detected = false.
+
+LEGITIMATE combos (do NOT flag these):
+  - Any imaging/lab + chronic disease management (I10, E11.9, I25.10) → LEGITIMATE
+  - Chest X-ray (71046) + respiratory infection (J06.9) → LEGITIMATE
+  - ECG (93000) + hypertension (I10) or cardiac screening (Z13.6) → LEGITIMATE
+  - Knee arthroscopy (29881) + shoulder pain (M25.511) → UNCERTAIN → default LEGITIMATE
+  - Knee replacement (27447) + shoulder pain (M25.511) → LEGITIMATE (concurrent pathology)
+  - Screening codes (G0103, G0101) + Z00.00 or Z03.89 → LEGITIMATE
+  - 87081 (urine culture) + N39.0 (UTI) → LEGITIMATE (standard diagnostic test)
+  - 87491 (chlamydia test) + N39.0 (UTI) → LEGITIMATE (STI co-testing during UTI workup)
+  - Any STI test (87491, 87081, 87110) + genitourinary diagnosis → LEGITIMATE
+  - 36415 (venipuncture) + ANY diagnosis → LEGITIMATE (routine blood draw)
+  - 85025 (CBC) + any chronic or acute condition → LEGITIMATE
+  - 80061 (lipid panel) + Z13.6 (cardiovascular screening) → LEGITIMATE
+
+Only flag CLEAR mismatches where the procedure treats a completely different
+organ system with NO possible clinical connection:
+  - Brain MRI (70553) + UTI (N39.0) → MISMATCH
+  - Cardiac cath (93458) + cold (J06.9) → better flagged as Phantom Billing
+  - Knee surgery + upper respiratory infection → MISMATCH
+
+→ When in doubt → fraud_detected = false. Precision matters more than recall here.
 
 STEP 5 — CODE PADDING CHECK
 Is there a legitimate primary procedure PLUS additional codes that are
@@ -245,36 +335,147 @@ clearly unrelated to the diagnosis and serve only to inflate the total?
 Unrelated = completely different organ system or clinical context.
 → If yes: Code Padding, HIGH confidence.
 
+STEP 5b — CODE SUBSTITUTION CHECK
+Does the procedure code clearly NOT match the documented clinical indication?
+Apply ONLY these specific, high-confidence patterns:
+
+  - 99213/99202/99203 (E&M office visit) + Z00.00 (routine wellness) as SOLE diagnosis
+    → cosmetic consultation disguised as medical office visit. Flag ONLY if Z00.00
+    is the ONLY diagnosis and the charge is under $200.
+
+  - 93000 (diagnostic ECG) + Z13.6 (cardiovascular screening) as SOLE diagnosis, charge < $100
+    → non-covered executive wellness ECG billed as diagnostic ECG.
+    NOTE: 93000 + Z13.6 with OTHER cardiac diagnoses (I10, I25.10) = LEGITIMATE.
+
+  - 29881 (knee arthroscopy) + M25.511/M25.512 (shoulder pain) as SOLE diagnosis
+    → knee procedure with shoulder-only diagnosis. Flag ONLY if there is NO knee
+    diagnosis anywhere and M25.511 is the only ICD code.
+    NOTE: If claim has any knee-related ICD code, default to LEGITIMATE.
+
+DO NOT flag as Code Substitution:
+  - 36415 (venipuncture) + ANY diagnosis → always legitimate
+  - 85025 (CBC) + E11.9 (diabetes) → CBC is valid for diabetes monitoring
+  - 85025 (CBC) + Z13.6 (cardiovascular screening) → CBC at cardiac screen is valid
+  - 80061 (lipid panel) + Z13.6 (cardiovascular screening) → exact clinical indication
+  - Any lab test + chronic disease management codes → always legitimate
+  - 71046 (chest X-ray) + J06.9 (URI) → legitimate (rule out pneumonia)
+
+→ When uncertain about substitution: default to fraud_detected = false.
+
 STEP 6 — LEGITIMATE
 If none of the above apply → fraud_detected=false.
 High-price specialty procedures with matching diagnoses are NEVER fraud.
 
 FEW-SHOT EXAMPLES:
 
-Example A — Diagnosis Mismatch (NOT Upcoding):
-  CPT: 93458 (cardiac cath), ICD: N39.0 (UTI), Billed: $3,400
-  → Cardiac catheterization requires a cardiac indication. UTI has no cardiac
-    relationship. fraud_type = "Diagnosis Mismatch", confidence = "high"
+Example A — Phantom Billing (impossible procedure for diagnosis):
+  CPT: 93458 (cardiac cath), ICD: Z00.00 (routine wellness), Billed: $3,200
+  → Invasive cardiac catheterization during a routine wellness visit is clinically
+    impossible — no cardiologist performs cath without a cardiac indication.
+    fraud_type = "Phantom Billing", confidence = "high"
 
-Example B — Legitimate (not upcoding despite high price):
-  CPT: 93306 (complete echo), ICD: I25.10 (CAD), Billed: $1,100
-  → Echo is single-level specialty, CAD is a perfect cardiac indication.
+Example B — Phantom Billing (oncology test, no cancer diagnosis):
+  CPT: 0048U (oncology DNA analysis), ICD: J06.9 (common cold), Billed: $4,850
+  → Advanced cancer genomic panel billed for a cold — never ordered without
+    active cancer diagnosis. fraud_type = "Phantom Billing", confidence = "high"
+
+Example C — Phantom Billing (high-cost genomics, metabolic diagnosis):
+  CPT: 0019M (oncology protein panel), ICD: E11.9 (type 2 diabetes), Billed: $2,500
+  → Oncology protein panel requires cancer diagnosis. Diabetes alone does not
+    justify oncology testing. fraud_type = "Phantom Billing", confidence = "high"
+
+Example C2 — Phantom Billing (transplant genomics, back pain):
+  CPT: 0055U (cardiac transplant genomic test), ICD: M54.5 (low back pain), Billed: $5,200
+  → Cardiac transplant genomic test requires a transplant patient. Low back pain
+    has zero relationship to cardiac transplantation.
+    fraud_type = "Phantom Billing", confidence = "high"
+
+Example C3 — Phantom Billing (major surgery, respiratory infection):
+  CPT: 27447 (total knee replacement), ICD: J06.9 (common cold), Billed: $11,000
+  → Elective knee replacement is never performed during an acute infection.
+    Physically impossible clinical scenario.
+    fraud_type = "Phantom Billing", confidence = "high"
+
+Example C4 — Code Substitution (wellness CBC):
+  CPT: 85025 (CBC), ICD: Z00.00 (routine wellness), Billed: $22, no other diagnosis
+  → Diagnostic CBC code used for a non-covered wellness lab draw.
+    fraud_type = "Code Substitution", confidence = "high"
+
+Example C5 — Code Substitution (wellness ECG):
+  CPT: 93000 (diagnostic ECG), ICD: Z13.6 (cardiovascular screening), Billed: $51
+  → Diagnostic ECG code used to bill a non-covered executive wellness ECG.
+    fraud_type = "Code Substitution", confidence = "high"
+
+Example D — Diagnosis Mismatch (wrong organ system):
+  CPT: 70553 (brain MRI), ICD: N39.0 (UTI), Billed: $1,286
+  → Brain MRI requires neurological indication. UTI has no neurological pathway.
+    fraud_type = "Diagnosis Mismatch", confidence = "high"
+
+Example E — Legitimate (unusual but valid combo):
+  CPT: 71046 (chest X-ray), ICD: J06.9 (URI), Billed: $220
+  → Chest X-ray ordered to rule out pneumonia during URI — valid clinical pathway.
     fraud_detected = false
 
-Example C — Upcoding (E&M only):
+Example F — Legitimate (high price, correct indication):
+  CPT: 93306 (complete echo), ICD: I25.10 (CAD), Billed: $1,100
+  → Echo with coronary artery disease is standard of care. Single-level procedure.
+    fraud_detected = false
+
+Example G — Upcoding (E&M code, wrong complexity):
   CPT: 99215 (high complexity office visit), ICD: J06.9 (cold), Billed: $280
-  → 99215 requires high medical decision-making; a cold warrants 99213.
-    Billed at 320% Medicare rate. fraud_type = "Upcoding", confidence = "medium"
+  → 99215 requires high medical decision-making. A cold warrants 99213.
+    fraud_type = "Upcoding", confidence = "medium"
 
-Example D — Code Padding:
+Example G2 — Upcoding (new patient high complexity, simple visit):
+  CPT: 99205 (new patient, highest complexity), ICD: J06.9 (cold), Billed: $383
+  → New patient cold visit warrants 99202-99203. 99205 is overbilled.
+    fraud_type = "Upcoding", confidence = "medium"
+
+Example G3 — Upcoding (CT when X-ray warranted):
+  CPT: 71250 (CT chest, high-resource), ICD: I10 (hypertension), Billed: $1,524
+  → Hypertension alone does not warrant CT chest. A plain X-ray (71046) or no
+    imaging is standard. CT is excessive for this diagnosis.
+    fraud_type = "Upcoding", confidence = "medium"
+
+Example G4 — Upcoding (CT when X-ray warranted, back pain):
+  CPT: 71250 (CT chest), ICD: M54.5 (low back pain), Billed: $1,233
+  → CT chest has no clinical relationship to back pain AND is excessive resource use.
+    fraud_type = "Upcoding", confidence = "medium"
+
+Example G5 — Upcoding (echo when ECG warranted):
+  CPT: 93306 (complete echocardiogram), ICD: Z13.6 (cardiovascular screening), Billed: $1,273
+  → Routine cardiovascular screening uses ECG (93000), not a full echocardiogram.
+    Echo requires known cardiac abnormality; screening alone doesn't justify it.
+    fraud_type = "Upcoding", confidence = "medium"
+
+Example G6 — Upcoding (echo when ECG warranted, hypertension):
+  CPT: 93306 (complete echocardiogram), ICD: I10 (hypertension), Billed: $1,091
+  → Newly diagnosed hypertension warrants ECG (93000) as first-line cardiac workup,
+    not a full echocardiogram. Echo is reserved for known cardiac dysfunction.
+    fraud_type = "Upcoding", confidence = "medium"
+
+Example G7 — Upcoding (genomic classifier when lipid panel warranted):
+  CPT: 0006M (oncology hepatocellular gene classifier), ICD: Z13.6 (cardiovascular screening), Billed: $1,408
+  → Cardiovascular screening warrants a lipid panel (80061) at ~$40.
+    An oncology gene classifier at $1,400 is massively excessive for cardiac screening.
+    fraud_type = "Upcoding", confidence = "medium"
+
+Example H — Legitimate (echo with established cardiac disease):
+  CPT: 93306 (complete echo), ICD: I25.10 (coronary artery disease), Billed: $1,100
+  → Echo with known CAD is standard of care — not upcoding.
+    fraud_detected = false"
+
+Example I — Code Padding (unrelated high-value codes added):
   CPT: 99202 + 0026U + 0063M, ICD: M25.511 (shoulder pain), Billed: $8,400
-  → 0026U/0063M are oncology genomic assays. Shoulder pain has no oncology
-    relationship. fraud_type = "Code Padding", confidence = "high"
+  → 0026U/0063M are oncology genomic assays — no relationship to shoulder pain.
+    fraud_type = "Code Padding", confidence = "high"
 
-Example E — Phantom Billing:
-  CPT: 93458 (cardiac cath), ICD: Z00.00 (routine wellness), Billed: $3,200
-  → Invasive cardiac procedure during wellness visit — clinically impossible.
-    fraud_type = "Phantom Billing", confidence = "high"
+Example J — Legitimate (knee arthroscopy, shoulder referred pain):
+  CPT: 29881 (knee arthroscopy), ICD: M25.511 (shoulder pain), Billed: $4,200
+  → Shoulder pain can be referred from cervical spine or other sources; patient
+    may have concurrent knee pathology. This combo CAN be legitimate.
+    → Only flag if there is ZERO clinical documentation supporting the knee procedure.
+    → Default to fraud_detected = false unless another red flag is present."
 
 Respond ONLY with valid JSON, no markdown, no other text:
 {{
@@ -404,7 +605,7 @@ if __name__ == "__main__":
                 claim    = json.load(f)
             claim_id = claim.get("claim_id", claim_path.stem)
 
-            rule_path = RULE_DIR / f"{claim_id}_rule.json"
+            rule_path = RULE_DIR / f"{claim_id}_rules.json"
             if rule_path.exists():
                 with open(rule_path) as f:
                     rule_result = json.load(f)
