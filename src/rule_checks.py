@@ -68,6 +68,25 @@ SCREENING_REQUIREMENTS = {
                                "E78.01", "I10", "I25.10", "I25.9", "Z82.49"},
         "allowed_context": "cardiovascular screening or known dyslipidemia",
     },
+    # Colorectal cancer screening — fecal occult blood tests
+    # Require a colorectal screening or GI diagnosis.
+    # NOT valid for cardiovascular (I10) or metabolic (E11.9) diagnoses alone.
+    "82270": {
+        "description": "Fecal occult blood test — colorectal screening",
+        "required_diagnoses": {"Z12.11", "Z12.10", "Z12.19", "Z00.00",
+                               "K92.1", "K57.30", "K57.32", "Z03.89"},
+        "allowed_context": "colorectal cancer screening or GI bleeding workup",
+    },
+    "G0107": {
+        "description": "Colorectal cancer screening — fecal occult blood test (Medicare)",
+        "required_diagnoses": {"Z12.11", "Z12.10", "Z12.19", "Z00.00"},
+        "allowed_context": "colorectal cancer screening",
+    },
+    "G0328": {
+        "description": "Colorectal cancer screening — immunoassay fecal occult blood",
+        "required_diagnoses": {"Z12.11", "Z12.10", "Z12.19", "Z00.00"},
+        "allowed_context": "colorectal cancer screening",
+    },
 }
 
 # ── Code Substitution patterns ─────────────────────────────────────────────────

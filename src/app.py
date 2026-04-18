@@ -936,10 +936,10 @@ def render_performance():
     # Metric cards
     c1,c2,c3,c4 = st.columns(4,gap="medium")
     for col,lbl,val,sub,accent in [
-        (c1,"F1 SCORE","0.763","Target ≥ 0.75  ✓","#16A34A"),
-        (c2,"PRECISION","88.8%","Of flags, % correct","#2563EB"),
-        (c3,"RECALL",   "66.9%","% of fraud caught",  "#2563EB"),
-        (c4,"ACCURACY", "71.2%","Overall classification","#2563EB"),
+        (c1,"F1 SCORE","0.857","Target ≥ 0.75  ✓","#16A34A"),
+        (c2,"PRECISION","95.7%","Of flags, % correct","#16A34A"),
+        (c3,"RECALL",   "74.0%","% of fraud caught",  "#2563EB"),
+        (c4,"ACCURACY", "80.6%","Overall classification","#2563EB"),
     ]:
         with col:
             st.markdown(f"""
@@ -962,13 +962,13 @@ def render_performance():
         perf = [
             ("Duplicate Billing",    "Rule",  80,  80,  1.000),
             ("Modifier Abuse (−59)", "Rule",  100, 100, 1.000),
-            ("Code Padding",         "LLM",   100, 89,  0.877),
-            ("Screening Code Abuse", "Rule",  80,  80,  0.755),
-            ("Phantom Billing",      "LLM",   100, 65,  0.739),
-            ("Diagnosis Mismatch",   "LLM",   120, 98,  0.638),
-            ("Upcoding",             "LLM",   120, 44,  0.359),
-            ("Unbundling",           "Rule",  100, 27,  0.353),
-            ("Code Substitution",    "LLM",   100, 19,  0.304),
+            ("Unbundling",           "Rule",  100, 100, 1.000),
+            ("Code Padding",         "LLM",   100, 90,  0.947),
+            ("Screening Code Abuse", "Rule",  80,  80,  0.804),
+            ("Diagnosis Mismatch",   "LLM",   120, 80,  0.800),
+            ("Phantom Billing",      "LLM",   100, 100, 0.615),
+            ("Upcoding",             "LLM",   120, 50,  0.556),
+            ("Code Substitution",    "LLM",   100, 14,  0.241),
         ]
         rows = ""
         for i,(name,m,n,d,f1) in enumerate(perf):
@@ -1175,8 +1175,8 @@ def main():
           </div>
           <div class="cg-metric-card">
             <div class="cg-metric-label">F1 Score</div>
-            <div class="cg-metric-value teal">0.763</div>
-            <div class="cg-metric-chip green">Precision 88.8%</div>
+            <div class="cg-metric-value teal">0.857</div>
+            <div class="cg-metric-chip green">Precision 95.7%</div>
           </div>
         </div>""", unsafe_allow_html=True)
 
