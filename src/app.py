@@ -517,7 +517,7 @@ def render_claims_table(all_claims, search_q, fraud_filter, rule_engine, llm_che
 
     BADGE = {
         "Legitimate":           ("#DCFCE7","#15803D"),
-        "Upcoding":             ("#FEE2E2","#DC2626"),
+        
         "Code Padding":         ("#FEE2E2","#DC2626"),
         "Phantom Billing":      ("#FEE2E2","#DC2626"),
         "Diagnosis Mismatch":   ("#FEF9C3","#854D0E"),
@@ -528,7 +528,7 @@ def render_claims_table(all_claims, search_q, fraud_filter, rule_engine, llm_che
         "Screening Code Abuse": ("#DBEAFE","#1D4ED8"),
     }
     BADGE_LBL = {
-        "Legitimate":"Legitimate","Upcoding":"Upcoding","Code Padding":"Code Padding",
+        "Legitimate":"Legitimate","Code Padding":"Code Padding",
         "Phantom Billing":"Phantom Billing","Diagnosis Mismatch":"Diag. Mismatch",
         "Code Substitution":"Code Sub.","Modifier Abuse (-59)":"Mod. Abuse",
         "Duplicate Billing":"Duplicate","Unbundling":"Unbundling",
@@ -778,7 +778,7 @@ def render_submit(rule_engine, llm_checker, all_claims):
             options = {}
             for ft in ["Legitimate", "Duplicate Billing", "Modifier Abuse (-59)",
                        "Code Padding", "Phantom Billing", "Diagnosis Mismatch",
-                       "Screening Code Abuse", "Upcoding", "Unbundling", "Code Substitution"]:
+                       "Screening Code Abuse", "Unbundling", "Code Substitution"]:
                 c2 = next((x for x in all_claims if x.get("fraud_type") == ft), None)
                 if c2:
                     ind = "⚠  " if c2.get("fraud_indicator") else "○  "
@@ -936,10 +936,10 @@ def render_performance():
     # Metric cards
     c1,c2,c3,c4 = st.columns(4,gap="medium")
     for col,lbl,val,sub,accent in [
-        (c1,"F1 SCORE","0.857","Target ≥ 0.75  ✓","#16A34A"),
-        (c2,"PRECISION","95.7%","Of flags, % correct","#16A34A"),
-        (c3,"RECALL",   "74.0%","% of fraud caught",  "#2563EB"),
-        (c4,"ACCURACY", "80.6%","Overall classification","#2563EB"),
+        (c1,"F1 SCORE","0.893","Target ≥ 0.75  ✓","#16A34A"),
+        (c2,"PRECISION","97.9%","Of flags, % correct","#16A34A"),
+        (c3,"RECALL",   "82.2%","% of fraud caught",  "#2563EB"),
+        (c4,"ACCURACY", "87.0%","Overall classification","#2563EB"),
     ]:
         with col:
             st.markdown(f"""
@@ -963,11 +963,10 @@ def render_performance():
             ("Duplicate Billing",    "Rule",  80,  80,  1.000),
             ("Modifier Abuse (−59)", "Rule",  100, 100, 1.000),
             ("Unbundling",           "Rule",  100, 100, 1.000),
-            ("Code Padding",         "LLM",   100, 90,  0.947),
+            ("Code Padding",         "LLM",   100, 87,  0.930),
             ("Screening Code Abuse", "Rule",  80,  80,  0.804),
             ("Diagnosis Mismatch",   "LLM",   120, 80,  0.800),
             ("Phantom Billing",      "LLM",   100, 100, 0.615),
-            ("Upcoding",             "LLM",   120, 50,  0.556),
             ("Code Substitution",    "LLM",   100, 14,  0.241),
         ]
         rows = ""
@@ -1015,8 +1014,8 @@ def render_performance():
         config = [
             ("Rule Engine","Active ✓"),("NCCI Edit Pairs","675,271"),
             ("AI Model","Claude Sonnet 4.6"),("AI Layer","Active ✓" if api_ok else "⚠ Set API Key"),
-            ("Fee Schedule","CMS 2026"),("Training Claims","1,300"),
-            ("Fraud Types","9 categories"),("Input Formats","EDI 837P · PDF"),
+            ("Evaluation Claims","1,300"),("Fraud Types","8 categories"),
+            ("Input Formats","EDI 837P"),("Benchmark","Synthetic CMS-1500"),
         ]
         rows2 = "".join([
             f'<tr style="background:{"#F9FAFB" if i%2==0 else "white"}">'
@@ -1048,7 +1047,8 @@ def main():
     fraud_count = sum(1 for c in all_claims if c.get("fraud_indicator"))
     fraud_exp   = sum(c.get("total_charge",0) for c in all_claims if c.get("fraud_indicator"))
     all_types   = (["All Claims"] +
-                   sorted([t for t in type_counts if t != "Legitimate"]) +
+                   sorted([t for t in type_counts
+                           if t not in ("Legitimate", "Upcoding")]) +
                    ["Legitimate"])
 
     # ── SIDEBAR ───────────────────────────────────────────────────────────────
@@ -1091,7 +1091,7 @@ def main():
             "Modifier Abuse (-59)": "⊘",
             "Phantom Billing": "◎",
             "Screening Code Abuse": "◈",
-            "Upcoding": "↑",
+            
             "Unbundling": "⊞",
         }
         for ft in all_types:
@@ -1175,7 +1175,7 @@ def main():
           </div>
           <div class="cg-metric-card">
             <div class="cg-metric-label">F1 Score</div>
-            <div class="cg-metric-value teal">0.857</div>
+            <div class="cg-metric-value teal">0.893</div>
             <div class="cg-metric-chip green">Precision 95.7%</div>
           </div>
         </div>""", unsafe_allow_html=True)

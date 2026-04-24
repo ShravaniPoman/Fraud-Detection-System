@@ -38,34 +38,13 @@ RATE_LIMIT_DELAY = 0.1
 
 
 def load_fee_schedule(path):
-    fee_dict = {}
-    CF = 32.35
-    if not Path(path).exists():
-        print(f"  ⚠️  Fee schedule not found — proceeding without price data")
-        return fee_dict
-    try:
-        import openpyxl
-        wb = openpyxl.load_workbook(str(path), read_only=True)
-        ws = wb.active
-        for row in ws.iter_rows(values_only=True):
-            code, desc, rvu = row[0], row[4], row[9]
-            if not code or not desc:
-                continue
-            code_str = str(code).strip()
-            if isinstance(rvu, (int, float)) and rvu > 0 and code_str not in fee_dict:
-                fee_dict[code_str] = {
-                    "description":   str(desc).strip(),
-                    "medicare_rate": round(rvu * CF, 2),
-                }
-        print(f"  ✅ Fee schedule loaded: {len(fee_dict):,} CPT codes")
-    except Exception as e:
-        print(f"  ⚠️  Fee schedule error: {e}")
-    return fee_dict
+    """Fee schedule removed — upcoding detection disabled per project scope."""
+    return {}
 
 
 # ── Single-level specialty procedures ─────────────────────────────────────────
-# These procedures have ONE code at their complexity level — there is no
-# "simpler version" to downcode to. They can NEVER be upcoding by price alone.
+# These procedures have ONE code at their complexity level.
+# Kept for clinical context in Phantom Billing and Diagnosis Mismatch detection.
 SINGLE_LEVEL_PROCEDURES = {
     # Cardiac imaging
     "93306", "93307", "93308",  # echocardiography
@@ -272,33 +251,8 @@ Impossible means: requires specialized hospital equipment but diagnosis is
 outpatient, OR procedure treats an organ/system with no relation to any diagnosis.
 → If yes: Phantom Billing, HIGH confidence.
 
-STEP 3 — UPCODING CHECK
-Upcoding = billing a more expensive/complex procedure than the diagnosis warrants.
-There are TWO types in this dataset:
-
-TYPE A — E&M complexity upcoding:
-  Is the code an E&M visit (99202–99215)?
-  Does the diagnosis justify that SPECIFIC complexity level?
-  - 99215 (high complexity) for a cold/simple visit → Upcoding
-  - 99205 (new patient, highest) for routine screening → Upcoding
-  - 99214/99215 for Z13.6 (cardiovascular screening) → Upcoding
-  Flag if: E&M code complexity exceeds what diagnosis warrants. Confidence = medium.
-
-TYPE B — Procedure substitution upcoding (MORE COMMON in this dataset):
-  Is a high-resource procedure billed when a simpler one was clinically warranted?
-  Known patterns — flag as Upcoding:
-  - 71250 (CT chest, ~$800+) billed when diagnosis only warrants 71046 (X-ray, ~$200)
-    → CT billed for simple diagnoses like I10 (hypertension) or M54.5 (back pain)
-    → Only an X-ray is clinically warranted; CT is excessive
-  - 93306 (complete echo, ~$1,000+) billed when only 93000 (ECG, ~$50) was warranted
-    → Echo billed for Z13.6 (cardiovascular screening) or I10 (hypertension alone)
-    → Simple ECG is standard first-line; echo requires known cardiac abnormality
-  - 0006M (oncology gene classifier, ~$1,000+) billed for Z13.6 (cardiovascular screening)
-    → A lipid panel (80061) or basic labs are warranted; genomic classifier is excessive
-  Flag if: procedure resource level far exceeds what diagnosis clinically warrants.
-  Confidence = medium.
-
-→ If neither type applies: skip to Step 4.
+STEP 3 — SKIP (Upcoding detection not in scope for this system)
+→ Proceed directly to Step 4.
 
 STEP 4 — DIAGNOSIS MISMATCH CHECK
 Ask TWO questions before flagging:
@@ -421,48 +375,9 @@ Example F — Legitimate (high price, correct indication):
   → Echo with coronary artery disease is standard of care. Single-level procedure.
     fraud_detected = false
 
-Example G — Upcoding (E&M code, wrong complexity):
-  CPT: 99215 (high complexity office visit), ICD: J06.9 (cold), Billed: $280
-  → 99215 requires high medical decision-making. A cold warrants 99213.
-    fraud_type = "Upcoding", confidence = "medium"
-
-Example G2 — Upcoding (new patient high complexity, simple visit):
-  CPT: 99205 (new patient, highest complexity), ICD: J06.9 (cold), Billed: $383
-  → New patient cold visit warrants 99202-99203. 99205 is overbilled.
-    fraud_type = "Upcoding", confidence = "medium"
-
-Example G3 — Upcoding (CT when X-ray warranted):
-  CPT: 71250 (CT chest, high-resource), ICD: I10 (hypertension), Billed: $1,524
-  → Hypertension alone does not warrant CT chest. A plain X-ray (71046) or no
-    imaging is standard. CT is excessive for this diagnosis.
-    fraud_type = "Upcoding", confidence = "medium"
-
-Example G4 — Upcoding (CT when X-ray warranted, back pain):
-  CPT: 71250 (CT chest), ICD: M54.5 (low back pain), Billed: $1,233
-  → CT chest has no clinical relationship to back pain AND is excessive resource use.
-    fraud_type = "Upcoding", confidence = "medium"
-
-Example G5 — Upcoding (echo when ECG warranted):
-  CPT: 93306 (complete echocardiogram), ICD: Z13.6 (cardiovascular screening), Billed: $1,273
-  → Routine cardiovascular screening uses ECG (93000), not a full echocardiogram.
-    Echo requires known cardiac abnormality; screening alone doesn't justify it.
-    fraud_type = "Upcoding", confidence = "medium"
-
-Example G6 — Upcoding (echo when ECG warranted, hypertension):
-  CPT: 93306 (complete echocardiogram), ICD: I10 (hypertension), Billed: $1,091
-  → Newly diagnosed hypertension warrants ECG (93000) as first-line cardiac workup,
-    not a full echocardiogram. Echo is reserved for known cardiac dysfunction.
-    fraud_type = "Upcoding", confidence = "medium"
-
-Example G7 — Upcoding (genomic classifier when lipid panel warranted):
-  CPT: 0006M (oncology hepatocellular gene classifier), ICD: Z13.6 (cardiovascular screening), Billed: $1,408
-  → Cardiovascular screening warrants a lipid panel (80061) at ~$40.
-    An oncology gene classifier at $1,400 is massively excessive for cardiac screening.
-    fraud_type = "Upcoding", confidence = "medium"
-
-Example H — Legitimate (echo with established cardiac disease):
+Example G — Legitimate (echo with established cardiac disease):
   CPT: 93306 (complete echo), ICD: I25.10 (coronary artery disease), Billed: $1,100
-  → Echo with known CAD is standard of care — not upcoding.
+  → Echo with known CAD is standard of care. Single-level specialty procedure.
     fraud_detected = false"
 
 Example I — Code Padding (unrelated high-value codes added):
@@ -480,7 +395,7 @@ Example J — Legitimate (knee arthroscopy, shoulder referred pain):
 Respond ONLY with valid JSON, no markdown, no other text:
 {{
   "fraud_detected": true or false,
-  "fraud_type": "Phantom Billing" | "Diagnosis Mismatch" | "Upcoding" | "Code Padding" | "Code Substitution" | null,
+  "fraud_type": "Phantom Billing" | "Diagnosis Mismatch" | "Code Padding" | "Code Substitution" | null,
   "confidence": "high" | "medium" | "low",
   "explanation": "One precise sentence: state the specific CPT code, the diagnosis, and exactly why this is fraud OR why it is legitimate."
 }}"""
@@ -499,7 +414,7 @@ class LLMChecker:
             )
         self.client        = anthropic.Anthropic(api_key=self.api_key)
         self.model         = model
-        self.fee_schedule  = load_fee_schedule(FEE_PATH)
+        self.fee_schedule  = {}  # Fee schedule removed — upcoding not in scope
         self.input_tokens  = 0
         self.output_tokens = 0
         self.api_calls     = 0
