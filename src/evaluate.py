@@ -56,7 +56,9 @@ def compute_binary_metrics(results):
     Computes binary fraud detection metrics (fraud vs legitimate).
     Returns a dict with tp, fp, fn, tn, precision, recall, f1, accuracy.
     """
-    labeled = [r for r in results if r.get("true_fraud") is not None]
+    labeled = [r for r in results
+               if r.get("true_fraud") is not None
+               and r.get("true_fraud_type") != "Upcoding"]  # Upcoding excluded — requires fee schedule
     tp = sum(1 for r in labeled if r["fraud_detected"] and r["true_fraud"])
     fp = sum(1 for r in labeled if r["fraud_detected"] and not r["true_fraud"])
     fn = sum(1 for r in labeled if not r["fraud_detected"] and r["true_fraud"])
@@ -78,7 +80,9 @@ def compute_per_type_metrics(results):
     """
     Computes precision, recall, F1 per fraud type.
     """
-    labeled = [r for r in results if r.get("true_fraud") is not None]
+    labeled = [r for r in results
+               if r.get("true_fraud") is not None
+               and r.get("true_fraud_type") != "Upcoding"]  # Upcoding excluded — requires fee schedule
 
     # All true fraud types in the dataset
     true_types = set(

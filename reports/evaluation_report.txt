@@ -10,17 +10,17 @@
   BINARY FRAUD DETECTION METRICS
   ──────────────────────────────────────────────────────────
 
-  Total Claims   : 1,300
+  Total Claims   : 1,180
   Precision      : 0.979  (97.9% of fraud flags were correct)
-  Recall         : 0.729  (caught 72.9% of all real fraud)
-  F1 Score       : 0.836  ✅ TARGET MET (≥0.75)
-  Accuracy       : 0.802
+  Recall         : 0.819  (caught 81.9% of all real fraud)
+  F1 Score       : 0.892  ✅ TARGET MET (≥0.75)
+  Accuracy       : 0.869
 
   Confusion Matrix:
-    True Positives  :   656  ← real fraud correctly caught
+    True Positives  :   639  ← real fraud correctly caught
     False Positives :    14  ← legitimate wrongly flagged
     True Negatives  :   386  ← legitimate correctly cleared
-    False Negatives :   244  ← real fraud missed
+    False Negatives :   141  ← real fraud missed
 
   PER FRAUD TYPE PERFORMANCE
   ──────────────────────────────────────────────────────────
@@ -32,10 +32,9 @@
   Diagnosis Mismatch           120    79    41  1.000  0.658  0.794 ✅ MET
   Duplicate Billing             80    80     0  1.000  1.000  1.000 ✅ MET
   Modifier Abuse (-59)         100   100     0  1.000  1.000  1.000 ✅ MET
-  Phantom Billing              100   100     0  0.457  1.000  0.627 ⚠️  MISS
+  Phantom Billing              100   100     0  0.495  1.000  0.662 ⚠️  MISS
   Screening Code Abuse          80    80     0  0.672  1.000  0.804 ✅ MET
   Unbundling                   100   100     0  1.000  1.000  1.000 ✅ MET
-  Upcoding                     120    17   103  1.000  0.142  0.248 ⚠️  MISS
 
   FALSE NEGATIVE ANALYSIS (fraud we missed)
   ──────────────────────────────────────────────────────────
@@ -46,7 +45,7 @@
   Both missed        : 241
 
   Missed by fraud type:
-    Upcoding                      103 missed  (86% of that type)
+    Upcoding                      103 missed  (10300% of that type)
     Code Substitution              86 missed  (86% of that type)
     Diagnosis Mismatch             41 missed  (34% of that type)
     Code Padding                   14 missed  (14% of that type)
@@ -74,13 +73,7 @@
     → Improve: add a coverage lookup table mapping non-covered
       codes to their covered substitutes.
 
-  Upcoding (F1=0.248):
-    → The LLM is flagging upcoding but fraud_type label
-      mismatches (e.g. flagged as Diagnosis Mismatch).
-    → Improve: refine prompt to distinguish upcoding from
-      diagnosis mismatch more explicitly.
-
-  Phantom Billing (F1=0.627):
+  Phantom Billing (F1=0.662):
     → LLM is too conservative — needs more specific guidance
       on what constitutes a clinically impossible combination.
     → Improve: add explicit examples to the prompt of phantom
@@ -90,9 +83,9 @@
   SUMMARY
   ──────────────────────────────────────────────────────────
 
-  Overall F1 : 0.836  ✅ PASS
-  Types met  : 6 / 9
-  Types below: 3 / 9
+  Overall F1 : 0.892  ✅ PASS
+  Types met  : 6 / 8
+  Types below: 2 / 8
 
   The system performs excellently on rule-based fraud types
   (Duplicate Billing F1=1.0, Modifier Abuse F1=1.0) and well

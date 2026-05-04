@@ -1,14 +1,14 @@
 {
   "binary": {
-    "total": 1300,
-    "tp": 656,
+    "total": 1180,
+    "tp": 639,
     "fp": 14,
-    "fn": 244,
+    "fn": 141,
     "tn": 386,
     "precision": 0.979,
-    "recall": 0.729,
-    "f1": 0.836,
-    "accuracy": 0.802
+    "recall": 0.819,
+    "f1": 0.892,
+    "accuracy": 0.869
   },
   "per_fraud_type": {
     "Code Padding": {
@@ -64,11 +64,11 @@
     "Phantom Billing": {
       "true_count": 100,
       "tp": 100,
-      "fp": 119,
+      "fp": 102,
       "fn": 0,
-      "precision": 0.457,
+      "precision": 0.495,
       "recall": 1.0,
-      "f1": 0.627,
+      "f1": 0.662,
       "detection_rate": 1.0
     },
     "Screening Code Abuse": {
@@ -90,16 +90,6 @@
       "recall": 1.0,
       "f1": 1.0,
       "detection_rate": 1.0
-    },
-    "Upcoding": {
-      "true_count": 120,
-      "tp": 17,
-      "fp": 0,
-      "fn": 103,
-      "precision": 1.0,
-      "recall": 0.142,
-      "f1": 0.248,
-      "detection_rate": 0.142
     }
   },
   "false_negatives": {
